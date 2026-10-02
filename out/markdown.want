@@ -1,0 +1,8 @@
+<h1>Title</h1>
+<p>Some <em>intro</em> text with <strong>bold</strong> and <code>code</code>.</p>
+<h2>List</h2>
+<ul>
+  <li>first</li>
+  <li>second <strong>item</strong></li>
+</ul>
+<p>A closing paragraph.</p>

@@ -1,0 +1,8 @@
+err: lookup 7: not found
+is NotFound: true
+is other: false
+unwrap: not found
+as code: 400
+join: one
+two: not found
+join is NotFound: true

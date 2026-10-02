@@ -1,0 +1,11 @@
+status 200: 4
+status 204: 1
+status 401: 1
+status 404: 1
+status 500: 1
+-- top paths --
+GET /api/users           3
+DELETE /api/users/42     1
+GET /api/report          1
+slow: GET /api/report -> 500 in 1.845s
+unmatched lines: 1

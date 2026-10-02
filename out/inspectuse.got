@@ -1,0 +1,10 @@
+name: main
+path: ucinspectuse
+standard: false
+decl func:Greeting
+decl func:main
+decl type:Pair
+decl var:Table
+doc: Greeting is a documented func.
+
+params: 1 results: 1

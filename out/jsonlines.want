@@ -1,0 +1,6 @@
+{"event":"click","n":1,"processed":true,"user":"ALICE"}
+{"event":"view","n":3,"processed":true,"user":"BOB"}
+{"event":"click","n":2,"processed":true,"user":"ALICE"}
+{"event":"view","n":5,"processed":true,"user":"CAROL"}
+bad lines: 1
+valid: true false

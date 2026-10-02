@@ -1,0 +1,1 @@
+2026/10/02 00:58:49 ERROR minigo error="runtime trap: undefined: sync.Pool\nTraceback (most recent call first):\nFile \"/usr/local/go/src/io/io.go\", line 655, in io.__init__()\n\t\tvar blackHolePool = sync.Pool{\nFile \"/home/ubuntu/usecasefuzz/cases/lim-io/main.go\", line 11, in main()\n\t\tb, err := io.ReadAll(strings.NewReader(\"payload\"))"

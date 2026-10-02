@@ -1,0 +1,9 @@
+find all: [a=1 b=22 c=333]
+submatch: [a=1 a 1]
+replace: [1] [22] [333]
+replace literal: <X> <X> <X>
+func: A=1 B=22 C=333
+split: [     ]
+match: true false
+first at: a=1
+compile err: true

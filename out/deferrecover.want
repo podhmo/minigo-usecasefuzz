@@ -1,0 +1,7 @@
+"ok:1" -> n=4 err=<nil>
+"nocolon" -> n=0 err=parse panic: missing colon
+"" -> n=0 err=parse panic: empty input
+cleanup end
+cleanup start
+cleanup err: inner
+after

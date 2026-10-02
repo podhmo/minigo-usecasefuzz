@@ -1,0 +1,10 @@
+"Hello, World!"                -> "hello-world"
+"Café Münchën — a tour"        -> "cafe-munchen-a-tour"
+"  Spaces  and   dashes "      -> "spaces-and-dashes"
+"日本語タイトル"                      -> ""
+"100% coverage (finally)"      -> "100-coverage-finally"
+A letter=true digit=false
+1 letter=false digit=true
+- letter=false digit=false
+日 letter=true digit=false
+本 letter=true digit=false

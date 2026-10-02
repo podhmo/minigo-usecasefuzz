@@ -1,0 +1,14 @@
+v:   {ann 30 [a b]}
++v:  {Name:ann Age:30 Tags:[a b]}
+#v:  main.User{Name:"ann", Age:30, Tags:[]string{"a", "b"}}
+T:   main.User
+ptr: &{1 2}
+map v:  map[a:1 b:2]
+map +v: map[a:1 b:2]
+slice: [1 2 3] / []int{1, 2, 3}
+q: "hi\nthere" 'x'
+x: ff FF 00ff 00000101
+f: 3.14     3.14 1.23456789e+08
+e: 1.000000e-04
+pct: 95.5%
+pad: |    42|42    |000042|

@@ -1,0 +1,2 @@
+main.go:7:2: no required module provides package minigo.dev/inspect; to add it:
+	go get minigo.dev/inspect

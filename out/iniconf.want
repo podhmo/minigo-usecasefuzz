@@ -1,0 +1,6 @@
+log.file = /var/log/app.log
+log.level = debug
+server.host = example.com
+server.port = 8080
+toplevel.bare = yes
+bad: 0

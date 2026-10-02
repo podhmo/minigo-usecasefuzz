@@ -1,0 +1,6 @@
+/services/web/replicas   -> 3 (err=<nil>)
+/services/db/ports       -> [5432] (err=<nil>)
+/meta/version            -> 2 (err=<nil>)
+/services/nope           -> <nil> (err=nope: missing)
+/meta/version/x          -> <nil> (err=x: not an object)
+replicas+ 4 3

@@ -1,0 +1,8 @@
+host: 0.0.0.0
+port: 9090
+missing port: 1234
+debug: true
+tag: a
+tag: b
+tag: c
+environ>0: true

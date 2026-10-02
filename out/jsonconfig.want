@@ -1,0 +1,22 @@
+{
+  "name": "demo",
+  "debug": true,
+  "server": {
+    "host": "localhost",
+    "port": 8080,
+    "tags": [
+      "api",
+      "v2"
+    ]
+  },
+  "env": {
+    "HOME_DIR": "/srv",
+    "LOG_LEVEL": "debug"
+  },
+  "weights": {
+    "a": 1,
+    "b": 2
+  }
+}
+port as number: 8080
+env keys: [HOME_DIR LOG_LEVEL]

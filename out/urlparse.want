@@ -1,0 +1,6 @@
+join: https://example.com/docs/v1/spec.html <nil>
+q: hello+world+%26+more
+p: a%2Fb%2Fc
+raw: https://example.com/search?q=hello+world+%26+more&tag=go+lang
+q=hello world & more (err=<nil>)
+tag=go lang (err=<nil>)
