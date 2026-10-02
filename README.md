@@ -11,6 +11,8 @@ manipulation or systems code.
 ## Layout
 
 - `cases/<name>/` — one standalone module per use case (`func main()`)
+- `language/` — a separate harness: Go-language-spec edge cases diffed
+  against `go run` (see `language/README.md`)
 - `concurrency/` — a separate harness: function-level probes + host-side
   checks for `go`/`chan`/`select`/`sync`/`time` semantics (see
   `concurrency/README.md`)
