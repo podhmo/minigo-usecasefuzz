@@ -11,6 +11,9 @@ manipulation or systems code.
 ## Layout
 
 - `cases/<name>/` — one standalone module per use case (`func main()`)
+- `concurrency/` — a separate harness: function-level probes + host-side
+  checks for `go`/`chan`/`select`/`sync`/`time` semantics (see
+  `concurrency/README.md`)
 - `run.sh [case ...]` — builds `./out/minigo` from `$MINIGO_DIR` (default
   `~/repos/minigo`) and prints a verdict per case
 - `out/` — captured `.want` (go) and `.got` (minigo) outputs
