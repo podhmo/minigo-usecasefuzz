@@ -8,7 +8,16 @@ set -u
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 MINIGO_DIR="${MINIGO_DIR:-$ROOT/../minigo}"
 OUT="$ROOT/out"
-BIN="$OUT/minigo"
+case "$(uname -s)" in
+MINGW* | MSYS* | CYGWIN*)
+	BIN="$OUT/minigo.exe"
+	TIMEOUT=/usr/bin/timeout # System32\timeout is a different command
+	;;
+*)
+	BIN="$OUT/minigo"
+	TIMEOUT=timeout
+	;;
+esac
 mkdir -p "$OUT"
 
 if [ ! -d "$MINIGO_DIR" ]; then
@@ -35,7 +44,7 @@ for name in $CASES; do
 
 	(cd "$dir" && go run .) > "$OUT/$name.want" 2>&1
 	want_rc=$?
-	(cd "$dir" && timeout 15 "$BIN" run .) > "$OUT/$name.got" 2>&1
+	(cd "$dir" && $TIMEOUT 15 "$BIN" run .) > "$OUT/$name.got" 2>&1
 	got_rc=$?
 
 	if [ "$want_rc" -ne 0 ]; then
