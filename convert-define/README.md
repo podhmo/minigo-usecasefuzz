@@ -49,3 +49,7 @@ bug: e.g. `int`→`string` leaf mismatch stays a compile error by design
 | neg01-baresrc | `c.Map(dst.V, source.A{}.V)` non-ident src — GEN-FAIL |
 | neg02-typo | `c.Map(dst.W, src.W)` unknown src member — GEN-FAIL |
 | neg03-rulesig | `define.Rule(badfn)` inside `c.Convert` — GEN-FAIL (non-function converter rejected at DSL eval) |
+| broken-src | type error in a source-pkg func body — generation succeeds (AST only, no typecheck); BUILD-FAIL is the broken input package itself |
+| broken-field | field of unresolved type `Ghost` — generation still succeeds (leaf cast `int64(src.V)` emitted); BUILD-FAIL is the broken input package itself |
+| broken-dsl | DSL file that never compiles (unused import, `ghost()`, `var x int = "no"` in the func lit) — OK: minigo runs it, output is clean |
+| broken-syntax | syntax error in source — GEN-FAIL: parse failure is the real boundary |
