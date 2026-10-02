@@ -1,0 +1,4 @@
+out/
+cases/*/go.mod
+cases/*/go.sum
+cases/*/generated.go
