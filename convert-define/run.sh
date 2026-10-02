@@ -51,7 +51,15 @@ MOD
 	rm -f "$dir/generated.go" "$dir/go.sum"
 	gen_log="$OUT/$name.gen.log"; build_log="$OUT/$name.build.log"
 	verdict=""
-	(cd "$dir" && go mod tidy) >"$gen_log" 2>&1 || verdict="TIDY-FAIL"
+	# optional per-case hook: recreate any pre-generation state (e.g. a stale
+	# generated.go that no longer compiles — generated.go itself is
+	# gitignored, so the hook writes it fresh each run)
+	if [ -f "$dir/pre-gen.sh" ]; then
+		(cd "$dir" && bash ./pre-gen.sh) >>"$gen_log" 2>&1 || verdict="TIDY-FAIL"
+	fi
+	if [ -z "$verdict" ]; then
+		(cd "$dir" && go mod tidy) >"$gen_log" 2>&1 || verdict="TIDY-FAIL"
+	fi
 	if [ -z "$verdict" ]; then
 		(cd "$GEN_DIR" && go run . -file "$dir/define.go" -output "$dir/generated.go") >>"$gen_log" 2>&1 \
 			|| verdict="GEN-FAIL"
