@@ -44,7 +44,8 @@ bug: e.g. `int`→`string` leaf mismatch stays a compile error by design
 | c16-unexported | unexported fields skipped |
 | c17-selfpkg | types in the generated package itself (self-import in define.go) |
 | c18-nested | `c.Map` dotted paths (`dst.Inner.ID`, `src.In.V`) |
+| c19-bareself | types in the generated package itself, referenced by bare name (no self-import) |
 | leaf-mismatch | `int64`→`string` — pinned BUILD-FAIL (loud failure by design) |
 | neg01-baresrc | `c.Map(dst.V, source.A{}.V)` non-ident src — GEN-FAIL |
 | neg02-typo | `c.Map(dst.W, src.W)` unknown src member — GEN-FAIL |
-| neg03-rulesig | `define.Rule(badfn)` inside `c.Convert` — BUILD-FAIL |
+| neg03-rulesig | `define.Rule(badfn)` inside `c.Convert` — GEN-FAIL (non-function converter rejected at DSL eval) |
