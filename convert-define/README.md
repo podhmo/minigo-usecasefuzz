@@ -49,6 +49,12 @@ bug: e.g. `int`→`string` leaf mismatch stays a compile error by design
 | neg01-baresrc | `c.Map(dst.V, source.A{}.V)` non-ident src — GEN-FAIL |
 | neg02-typo | `c.Map(dst.W, src.W)` unknown src member — GEN-FAIL |
 | neg03-rulesig | `define.Rule(badfn)` inside `c.Convert` — GEN-FAIL (non-function converter rejected at DSL eval) |
+| neg04-funclit-sig | `c.Convert` with a func literal lacking the `(ctx, ec, src)` params — GEN-FAIL (arity checked at DSL eval; used to emit `f(ctx, ec, src)` against a 1-param literal) |
+| c20-fmt-iface | `fmt.Stringer` dst field next to a map loop — the template's own `fmt` import used to be emitted twice |
+| c21-claimed-dst | `c.Compute`/`c.Map` onto a same-named dst field of another type — the field is no longer also auto-matched (that emitted an ill-typed dead assignment) |
+| check01-compute-expr | `c.Compute(dst.V, src.V+"!")` string into int — pinned BUILD-FAIL: arbitrary expressions are not typed at generation; `-check` traces it to `convertAToB, field V` |
+| check02-iface | `int` → `fmt.Stringer` — pinned BUILD-FAIL: needs method sets; `-check` territory |
+| check03-named-slice | `IDs []int` → `Names []string` — pinned BUILD-FAIL: named composites are cast, not converted element-wise (knowable without a type checker; see minigo TODO.md) |
 | broken-src | type error in a source-pkg func body — generation succeeds (AST only, no typecheck); BUILD-FAIL is the broken input package itself |
 | broken-field | field of unresolved type `Ghost` — generation still succeeds (leaf cast `int64(src.V)` emitted); BUILD-FAIL is the broken input package itself |
 | broken-dsl | DSL file that never compiles (unused import, `ghost()`, `var x int = "no"` in the func lit) — OK: minigo runs it, output is clean |
