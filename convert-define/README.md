@@ -48,9 +48,3 @@ bug: e.g. `int`→`string` leaf mismatch stays a compile error by design
 | neg01-baresrc | `c.Map(dst.V, source.A{}.V)` non-ident src — GEN-FAIL |
 | neg02-typo | `c.Map(dst.W, src.W)` unknown src member — GEN-FAIL |
 | neg03-rulesig | `define.Rule(badfn)` inside `c.Convert` — BUILD-FAIL |
-
-Bugs/limitations found via this corpus are tracked in podhmo/minigo's
-`TODO.md` ("convert-define fuzz leftovers"), not here. The c17-selfpkg
-self-import form is a harness usage note: unqualified type names in
-`define.Convert` params cannot resolve, so qualify them via
-`import m "example.com/m"` as c17 does.
