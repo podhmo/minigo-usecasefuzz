@@ -1,1 +1,1 @@
-2026/10/02 00:58:49 ERROR minigo error="runtime trap: undefined: sync.Map\nTraceback (most recent call first):\nFile \"/usr/local/go/src/reflect/type.go\", line 1383, in reflect.__init__()\n\t\tvar ptrMap sync.Map // map[*rtype]*ptrType\nFile \"/usr/local/go/src/text/template/exec.go\", line 91, in template.__init__()\n\t\tvar zero reflect.Value\nFile \"/home/ubuntu/usecasefuzz/cases/lim-template/main.go\", line 11, in main()\n\t\tt := template.Must(template.New(\"mail\").Parse("
+Hello ann, you have 3 items (VIP). <nil>
