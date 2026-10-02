@@ -7,7 +7,16 @@ set -u
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 MINIGO_DIR="${MINIGO_DIR:-$ROOT/../../minigo}"
 OUT="$ROOT/out"
-BIN="$OUT/minigo"
+case "$(uname -s)" in
+MINGW* | MSYS* | CYGWIN*)
+	BIN="$OUT/minigo.exe"
+	TIMEOUT=/usr/bin/timeout # System32\timeout is a different command
+	;;
+*)
+	BIN="$OUT/minigo"
+	TIMEOUT=timeout
+	;;
+esac
 mkdir -p "$OUT"
 
 if [ ! -d "$MINIGO_DIR" ]; then
@@ -30,7 +39,7 @@ fi
 for d in "${dirs[@]}"; do
 	fns=$(grep -oE '^func [A-Z][A-Za-z0-9_]*\(' "cases/$d/main.go" | sed 's/^func //; s/($//; s/(//')
 	for fn in $fns; do
-		out=$(timeout 8 "$BIN" "./cases/$d" "$fn" 2>&1)
+		out=$($TIMEOUT 8 "$BIN" "./cases/$d" "$fn" 2>&1)
 		code=$?
 		printf '=== %s/%s (exit %s)\n%s\n' "$d" "$fn" "$code" "$out"
 	done
