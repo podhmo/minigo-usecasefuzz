@@ -17,15 +17,19 @@
 `lim-*` cases are deliberate limitation probes: they use packages that are
 not bound into the interpreter and document how the failure presents.
 
-Latest run (2026-10-02): **34 PASS / 0 DIFF / 1 ACCEPT / 2 TRAP** — after
-the PR-30 leftover fixes, six of the eight `lim-*` probes now run like Go
+Latest run (2026-10-02): **34 PASS / 0 DIFF / 1 ACCEPT / 4 TRAP** — after
+the PR-30 leftover fixes, six of the ten `lim-*` probes now run like Go
 (lim-flag, lim-template, lim-bufio, lim-sha, lim-csv, lim-io pass; the
-packages involved are now bound). The remaining TRAPs are `lim-http`
-(net/http pulls in `unsafe.Pointer`-based internals via `unique`/`abi`/
-`reflect`, which cannot be interpreted) and `lim-yaml` (external module
-`gopkg.in/yaml.v3` is not resolvable without a module fetch). The one
-ACCEPT is `inspectuse`: intentional, since `minigo.dev/inspect` exists
-only inside the interpreter and `go run` cannot compile it.
+packages involved are now bound). The remaining four TRAPs all land on
+the same boundary — `unsafe.Pointer` reinterpretation inside
+`internal/abi`/`reflect`-adjacent stdlib internals: `lim-http` (`net` init
+→ `unique.Make` → `abi.TypeFor`), `lim-yaml` (`gopkg.in/yaml.v3` resolves
+via GOMODCACHE but its init → `reflect.TypeOf` → `abi.TypeOf`), `lim-xml`
+(stdlib `encoding/xml` init needs `reflect`), and `lim-toml` (external
+`go-toml/v2`, same reflect boundary). Config-file reading works only for
+`encoding/json` (natively bound): jsonconfig/jsonlines/jsonptr PASS.
+The one ACCEPT is `inspectuse`: intentional, since `minigo.dev/inspect`
+exists only inside the interpreter and `go run` cannot compile it.
 
 ## Cases and what they exercise
 
@@ -62,6 +66,8 @@ only inside the interpreter and `go run` cannot compile it.
 | lim-template | text/template rendering (probe) | text/template |
 | lim-http | HTTP request building (probe) | net/http |
 | lim-yaml | external module dependency (probe) | gopkg.in/yaml.v3 via go.mod |
+| lim-xml | stdlib XML decode (probe) | encoding/xml — reflect init boundary |
+| lim-toml | external TOML decode (probe) | github.com/pelletier/go-toml/v2 |
 | lim-bufio | line scanning (probe) | bufio.Scanner |
 | lim-sha | SHA-256 checksum (probe) | crypto/sha256 |
 | lim-csv | CSV reading (probe) | encoding/csv |
