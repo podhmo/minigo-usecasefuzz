@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
 # run.sh [case ...] — differential test: `go run` (oracle) vs `minigo run`.
 # Each cases/<name>/ dir is a standalone module so both run from the dir itself.
+#
+# Point MINIGO_DIR at a podhmo/minigo checkout (default: sibling clone —
+# if missing, it is cloned shallowly next to this repo).
 set -u
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-MINIGO_DIR="${MINIGO_DIR:-$HOME/repos/minigo}"
+MINIGO_DIR="${MINIGO_DIR:-$ROOT/../minigo}"
 OUT="$ROOT/out"
 BIN="$OUT/minigo"
 mkdir -p "$OUT"
+
+if [ ! -d "$MINIGO_DIR" ]; then
+	echo "cloning podhmo/minigo into $MINIGO_DIR ..." >&2
+	git clone --depth 1 https://github.com/podhmo/minigo "$MINIGO_DIR" || {
+		echo "cannot obtain minigo; set MINIGO_DIR to your checkout" >&2
+		exit 1
+	}
+fi
 
 if [ ! -x "$BIN" ] || [ "$MINIGO_DIR/intrinsics.go" -nt "$BIN" ]; then
 	(cd "$MINIGO_DIR" && go build -o "$BIN" ./cmd/minigo) || exit 1

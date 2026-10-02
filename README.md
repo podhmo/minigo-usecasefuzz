@@ -78,7 +78,8 @@ and `go run` cannot compile it.
 ## Usage
 
 ```sh
-./run.sh            # all cases
+./run.sh            # all cases (clones podhmo/minigo next to this repo on first run)
 ./run.sh wordfreq   # one case
+MINIGO_DIR=/path/to/minigo ./run.sh   # run against a specific checkout/branch
 diff out/wordfreq.want out/wordfreq.got
 ```
