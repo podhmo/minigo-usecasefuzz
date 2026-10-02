@@ -31,8 +31,8 @@ verdict is PASS-REJECT — a runtime trap is the nearest loud failure).
 `lim-complex` (complex numbers), `lim-threeidx` (`s[a:b:c]`),
 `lim-bigconst` (`1<<100` arbitrary-precision consts), `lim-uintptr`.
 
-Latest run (2026-10-02, post-PR-#29): **35 PASS / 4 PASS-REJECT /
-0 DIFF / 3 TRAP-by-design**.
+Latest run (2026-10-02, minigo main + podhmo/minigo#45): **35 PASS /
+4 PASS-REJECT / 0 DIFF / 3 TRAP-by-design**.
 
 ## Usage
 
