@@ -49,17 +49,14 @@ replace github.com/podhmo/minigo/examples/convert-define => $GEN_DIR
 MOD
 
 	rm -f "$dir/generated.go" "$dir/go.sum"
+	# a committed generated.go.stale seeds the pre-generation state: it is
+	# copied to generated.go so the tool runs against a case whose package
+	# may not compile (generated.go itself is gitignored, hence the .stale
+	# backup lives in git)
+	[ -f "$dir/generated.go.stale" ] && cp "$dir/generated.go.stale" "$dir/generated.go"
 	gen_log="$OUT/$name.gen.log"; build_log="$OUT/$name.build.log"
 	verdict=""
-	# optional per-case hook: recreate any pre-generation state (e.g. a stale
-	# generated.go that no longer compiles — generated.go itself is
-	# gitignored, so the hook writes it fresh each run)
-	if [ -f "$dir/pre-gen.sh" ]; then
-		(cd "$dir" && bash ./pre-gen.sh) >>"$gen_log" 2>&1 || verdict="TIDY-FAIL"
-	fi
-	if [ -z "$verdict" ]; then
-		(cd "$dir" && go mod tidy) >"$gen_log" 2>&1 || verdict="TIDY-FAIL"
-	fi
+	(cd "$dir" && go mod tidy) >"$gen_log" 2>&1 || verdict="TIDY-FAIL"
 	if [ -z "$verdict" ]; then
 		(cd "$GEN_DIR" && go run . -file "$dir/define.go" -output "$dir/generated.go") >>"$gen_log" 2>&1 \
 			|| verdict="GEN-FAIL"

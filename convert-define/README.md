@@ -53,4 +53,4 @@ bug: e.g. `int`→`string` leaf mismatch stays a compile error by design
 | broken-field | field of unresolved type `Ghost` — generation still succeeds (leaf cast `int64(src.V)` emitted); BUILD-FAIL is the broken input package itself |
 | broken-dsl | DSL file that never compiles (unused import, `ghost()`, `var x int = "no"` in the func lit) — OK: minigo runs it, output is clean |
 | broken-syntax | syntax error in source — GEN-FAIL: parse failure is the real boundary |
-| stale-generated | stale `generated.go` in `package gen` referencing deleted src/dst fields (the whole package does not compile) — OK: `-file` targets the DSL file only, so regeneration overwrites the broken output and the package builds again |
+| stale-generated | stale `generated.go` in `package gen` referencing deleted src/dst fields (the whole package does not compile) — OK: `-file` targets the DSL file only, so regeneration overwrites the broken output and the package builds again. The stale state is committed as `generated.go.stale` and copied over the (gitignored) `generated.go` before each run |
