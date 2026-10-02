@@ -17,11 +17,15 @@
 `lim-*` cases are deliberate limitation probes: they use packages that are
 not bound into the interpreter and document how the failure presents.
 
-Latest run (2026-10-02): **28 PASS / 0 DIFF / 1 ACCEPT / 8 TRAP** — all 8
-TRAPs are `lim-*` probes documenting unbound-API boundaries (see the report
-in `docs/sketch/ja/fuzz-usecase.md`). The one ACCEPT is `inspectuse`:
-intentional, since `minigo.dev/inspect` exists only inside the interpreter
-and `go run` cannot compile it.
+Latest run (2026-10-02): **34 PASS / 0 DIFF / 1 ACCEPT / 2 TRAP** — after
+the PR-30 leftover fixes, six of the eight `lim-*` probes now run like Go
+(lim-flag, lim-template, lim-bufio, lim-sha, lim-csv, lim-io pass; the
+packages involved are now bound). The remaining TRAPs are `lim-http`
+(net/http pulls in `unsafe.Pointer`-based internals via `unique`/`abi`/
+`reflect`, which cannot be interpreted) and `lim-yaml` (external module
+`gopkg.in/yaml.v3` is not resolvable without a module fetch). The one
+ACCEPT is `inspectuse`: intentional, since `minigo.dev/inspect` exists
+only inside the interpreter and `go run` cannot compile it.
 
 ## Cases and what they exercise
 
