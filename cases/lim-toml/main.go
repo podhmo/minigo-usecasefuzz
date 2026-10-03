@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/pelletier/go-toml/v2"
+	"github.com/BurntSushi/toml"
 )
 
 // External module + reflect-driven decode.

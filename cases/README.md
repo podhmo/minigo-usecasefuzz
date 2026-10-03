@@ -17,16 +17,18 @@
 `lim-*` cases are deliberate limitation probes: they use packages that are
 not bound into the interpreter and document how the failure presents.
 
-Latest run (2026-10-03): **41 PASS / 0 DIFF / 1 ACCEPT / 1 REJECT / 3 TRAP** — after
+Latest run (2026-10-03): **42 PASS / 0 DIFF / 1 ACCEPT / 1 REJECT / 2 TRAP** — after
 the minigo reflect-facade fix stack (podhmo/minigo Stack #168), `lim-yaml`
 passes end-to-end: `gopkg.in/yaml.v3`'s reflect-driven decode runs through
-the `minireflect` facade. `lim-xml` progressed past `encoding/xml` init
-and `rawToken` into the reflect-driven decoder and now traps on
-`reflect.TypeAssert[T]` (explicit type args on a bound builtin — not yet
-supported). The remaining TRAPs land on three distinct boundaries:
-`lim-toml` (`unsafe.Pointer` inside go-toml's `internal/danger`), and
-`lim-http` (`net/http` imports `golang.org/x/net/http/httpguts`, outside
-the module graph). The one ACCEPT is `inspectuse`: intentional, since
+the `minireflect` facade. `lim-toml` passes after swapping pelletier/go-toml
+for `github.com/BurntSushi/toml` — pelletier's `internal/danger` reinterprets
+`reflect.SliceHeader` via `unsafe.Pointer`, which minigo cannot model
+(policy: prefer deps that avoid unsafe/cgo). `lim-xml` progressed past
+`encoding/xml` init and `rawToken` into the reflect-driven decoder and now
+traps on `reflect.TypeAssert[T]` (explicit type args on a bound builtin —
+not yet supported), and `lim-http` traps on module resolution (`net/http`
+imports `golang.org/x/net/http/httpguts`, outside the module graph).
+The one ACCEPT is `inspectuse`: intentional, since
 `minigo.dev/inspect` exists only inside the interpreter and `go run`
 cannot compile it.
 
@@ -73,7 +75,7 @@ cannot compile it.
 | lim-http | HTTP request building (probe) | net/http |
 | lim-yaml | external module dependency (probe) | gopkg.in/yaml.v3 via go.mod |
 | lim-xml | stdlib XML decode (probe) | encoding/xml — reflect init boundary |
-| lim-toml | external TOML decode (probe) | github.com/pelletier/go-toml/v2 |
+| lim-toml | external TOML decode (probe) | github.com/BurntSushi/toml |
 | lim-bufio | line scanning (probe) | bufio.Scanner |
 | lim-sha | SHA-256 checksum (probe) | crypto/sha256 |
 | lim-csv | CSV reading (probe) | encoding/csv |
