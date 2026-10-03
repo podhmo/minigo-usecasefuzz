@@ -20,7 +20,9 @@ Findings from the original round (11 bugs, all fixed):
   func with `timeout 8`, prints `=== dir/Func (exit N)` + output.
 - `host/` — host-side Go checks: `runtime.ImportRef.Materialize` panic
   bookkeeping, concurrent `Engine.Run` on one engine (`-race`), goroutine
-  leak measurement (`NumGoroutine` before/after).
+  leak liveness via bound `parkprobe` builtins — the spawned goroutine
+  reports itself (`Parked`/`Gone`) instead of `NumGoroutine` deltas, so
+  unrelated goroutine churn cannot mask the result.
   `go.mod` uses `replace github.com/podhmo/minigo => ../../../minigo`
   (the same sibling-clone convention as `run.sh`).
 
@@ -70,9 +72,12 @@ cd host && go run -race .
 
 ## Expected failures still standing
 
-- `host` T5 / `DetachedWait`: a script goroutine parked inside a
-  non-select host call (`WaitGroup.Wait`, `Mutex.Lock`) outlives its
-  process — goroutine count grows by 1. Go-consistent limitation; only
-  select-based blocking watches `proc.done`.
+- `host` T5 / `DetachedWaitProbe` (`testdata/hostpark`): a script
+  goroutine parked inside a non-select host call (`WaitGroup.Wait`,
+  `Mutex.Lock`) outlives its process — `parked=true` fires after the
+  run's process is already dead. Go-consistent limitation; only
+  select-based blocking watches `proc.done`. Its sibling T4
+  (`DetachedLeakProbe`) is the complement: a channel-parked goroutine
+  unwinds with the process and reports `gone=true`.
 - Deadlock dirs exit 2 with the host's `fatal error` — that *is* the
   correct Go-like behavior (the CLI dies rather than hanging).

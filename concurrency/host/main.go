@@ -49,22 +49,59 @@ func main() {
 		fmt.Printf("T3 concurrent Run errs: %q %q\n", <-done, <-done)
 	}
 
-	// T4: goroutine leak — a spawned script goroutine parked after Call returns
+	// T4: a spawned script goroutine parked in a channel op dies with the
+	// process — its deferred parkprobe.Gone reports the unwind, so the
+	// check needs no goroutine counting (a net NumGoroutine delta is
+	// maskable by unrelated goroutine churn).
 	{
-		before := goruntime.NumGoroutine()
 		e := minigo.NewEngine(".")
-		_, err := e.Run(ctx, "./testdata/concurrency", "DetachedLeak")
-		time.Sleep(50 * time.Millisecond)
-		fmt.Printf("T4 leak err=%v goroutines before=%d after=%d\n", err, before, goruntime.NumGoroutine())
+		gone := make(chan struct{})
+		e.Bind("parkprobe", map[string]runtime.Value{
+			"Gone": &runtime.BuiltinFunc{
+				Name: "parkprobe.Gone",
+				Fn: func(_ runtime.VMCaller, _ []runtime.Value) (runtime.Value, error) {
+					close(gone)
+					return nil, nil
+				},
+			},
+		})
+		before := goruntime.NumGoroutine()
+		_, err := e.Run(ctx, "./testdata/hostpark", "DetachedLeakProbe")
+		var fired bool
+		select {
+		case <-gone:
+			fired = true
+		case <-time.After(30 * time.Second): // anti-hang bound, not a timing check
+		}
+		fmt.Printf("T4 detach-dies err=%v gone=%v (want true) goroutines before=%d after=%d\n",
+			err, fired, before, goruntime.NumGoroutine())
 	}
 
 	// T5: a spawned goroutine parked in a HOST call (WaitGroup.Wait, not a
-	// select) is not released by proc kill — it leaks.
+	// select) is not released by proc kill — it leaks. parkprobe.Parked
+	// reports the goroutine reached the park point; the reflect method call
+	// into inner.Wait() then provably parks it in a real WaitGroup.
 	{
-		before := goruntime.NumGoroutine()
 		e := minigo.NewEngine(".")
-		_, err := e.Run(ctx, "./testdata/concurrency", "DetachedWait")
-		time.Sleep(50 * time.Millisecond)
-		fmt.Printf("T5 wait-leak err=%v goroutines before=%d after=%d\n", err, before, goruntime.NumGoroutine())
+		parked := make(chan struct{})
+		e.Bind("parkprobe", map[string]runtime.Value{
+			"Parked": &runtime.BuiltinFunc{
+				Name: "parkprobe.Parked",
+				Fn: func(_ runtime.VMCaller, _ []runtime.Value) (runtime.Value, error) {
+					close(parked)
+					return nil, nil
+				},
+			},
+		})
+		before := goruntime.NumGoroutine()
+		_, err := e.Run(ctx, "./testdata/hostpark", "DetachedWaitProbe")
+		var fired bool
+		select {
+		case <-parked:
+			fired = true
+		case <-time.After(30 * time.Second): // anti-hang bound, not a timing check
+		}
+		fmt.Printf("T5 wait-leak err=%v parked=%v (want true) goroutines before=%d after=%d\n",
+			err, fired, before, goruntime.NumGoroutine())
 	}
 }
