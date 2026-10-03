@@ -1,0 +1,5 @@
+greet: hello, world
+add: 42
+parse.qty: 42
+parse.qty: error bad qty "x"
+upper: error unknown command "upper"
