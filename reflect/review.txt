@@ -1,0 +1,1743 @@
+Review of devin/1791022746-yaml-reflect-facade
+HEAD: f7dd4ed3d3e9448d02e6b5fe58242c391493459e
+Base: e69121cf30d120e09d14901287fb4cbec09ffdde
+
+All listed MREs were run with the Go toolchain and the reviewed minigo binary.
+panic in expected output means a panic was caught by the explicit deferred recover.
+The repository was kept unchanged. make test and make lint passed.
+The 37-case usecase corpus had no new regressions; lim-yaml changed from TRAP to PASS.
+Explicit unsupported traps and pre-existing failures are not listed as new findings.
+
+Run a standard MRE:
+  GOCACHE=/private/tmp/minigo-review-cache go -C /private/tmp/minigo-reflect-mres/<case> run ./
+  /private/tmp/minigo-yaml-review run /private/tmp/minigo-reflect-mres/<case>
+Run the host embedding MRE:
+  GOCACHE=/private/tmp/minigo-review-cache go -C /private/tmp/minigo-reflect-mres/session-policy run -mod=mod ./
+
+1. Field addressability
+Changed location: minireflect/rvalue.go:491
+
+MRE: field-addressability/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{ X int }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	v := reflect.ValueOf(S{X: 1}).Field(0)
+	fmt.Println(v.CanAddr(), v.CanSet())
+}
+
+Go:
+false false
+minigo:
+true true
+
+MRE: map-read-copy/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{ X int }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	m := map[string]S{"k": {X: 1}}
+	reflect.ValueOf(m).MapIndex(reflect.ValueOf("k")).Field(0).SetInt(9)
+	fmt.Println(m["k"].X)
+}
+
+Go:
+panic
+minigo:
+9
+
+2. Anonymous type canonical keys
+Changed location: minireflect/rtype.go:94
+
+MRE: slice-type-identity/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.TypeOf([]int{}) == reflect.SliceOf(reflect.TypeOf(0)))
+}
+
+Go:
+true
+minigo:
+false
+
+3. MakeSlice capacity and validation
+Changed location: minireflect/minireflect.go:423
+
+MRE: make-slice-capacity/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	v := reflect.MakeSlice(reflect.TypeOf([]int{}), 1, 4)
+	fmt.Println(v.Len(), v.Cap())
+}
+
+Go:
+1 4
+minigo:
+1 1
+
+MRE: make-slice-invalid/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.MakeSlice(reflect.TypeOf([]int{}), 2, 1).Len())
+}
+
+Go:
+panic
+minigo:
+2
+
+4. IsZero arrays, nil composites and invalid values
+Changed location: minireflect/rvalue.go:415
+
+MRE: is-zero/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.ValueOf([2]int{}).IsZero(), reflect.ValueOf([]int{}).IsZero(), reflect.ValueOf(map[string]int{}).IsZero())
+}
+
+Go:
+true false false
+minigo:
+false true true
+
+MRE: zero-invalid/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	var v reflect.Value
+	fmt.Println(v.IsZero())
+}
+
+Go:
+panic
+minigo:
+true
+
+5. SetInt and SetUint narrowing
+Changed location: minireflect/rvalue.go:1054
+
+MRE: set-int-width/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	var n int8
+	reflect.ValueOf(&n).Elem().SetInt(257)
+	fmt.Println(n)
+}
+
+Go:
+1
+minigo:
+257
+
+MRE: set-uint-width/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	var x uint8
+	reflect.ValueOf(&x).Elem().SetUint(257)
+	fmt.Println(x)
+}
+
+Go:
+1
+minigo:
+257
+
+6. Aliases must share target identity
+Changed location: minireflect/rtype.go:88
+
+MRE: alias-identity/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type A = int
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.TypeFor[A]() == reflect.TypeFor[int](), reflect.TypeFor[byte]() == reflect.TypeFor[uint8]())
+}
+
+Go:
+true true
+minigo:
+false false
+
+7. Local and instantiated named types must retain distinct identity
+Changed location: minireflect/rtype.go:89
+
+MRE: local-type-identity/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func a() reflect.Type { type X int; return reflect.TypeOf(X(0)) }
+func b() reflect.Type { type X int; return reflect.TypeOf(X(0)) }
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(a() == b())
+}
+
+Go:
+false
+minigo:
+true
+
+MRE: generic-identity/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S[T any] struct{ X T }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.TypeOf(S[int]{}) == reflect.TypeOf(S[string]{}))
+}
+
+Go:
+false
+minigo:
+true
+
+8. Host numeric boxing must preserve identity
+Changed location: vm/vm.go:5075
+
+MRE: host-numeric-regression/main.go
+
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() { var a any = time.Unix(0, 0).UTC().Weekday(); var b any = int(4); fmt.Println(a == b) }
+
+Go:
+false
+minigo:
+true
+
+MRE: host-numeric-equality/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() { var a any = reflect.Int; var b any = uint(reflect.Int); fmt.Println(a == b) }
+
+Go:
+false
+minigo:
+true
+
+MRE: host-numeric-type/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() { fmt.Printf("%T\n", reflect.Int+1) }
+
+Go:
+reflect.Kind
+minigo:
+int
+
+9. NewSession must inherit package modes
+Changed location: minigo.go:108
+
+MRE: session-policy/main.go
+
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/podhmo/minigo"
+)
+
+func main() {
+	e := minigo.NewEngine("/private/tmp/minigo-reflect-mres/session-policy", minigo.WithPackageModes(map[string]minigo.PackageMode{"strings": minigo.ModeDeny}))
+	_, err := e.Run(context.Background(), "./script", "Main")
+	fmt.Println("parent denied:", err != nil)
+	v, err := e.NewSession().Run(context.Background(), "./script", "Main")
+	fmt.Println("session denied:", err != nil, "value:", v)
+}
+
+Observed host program output:
+parent denied: true
+session denied: false value: OK
+Expected: both parent and session deny the import.
+
+10. Indirect must dereference once
+Changed location: minireflect/minireflect.go:280
+
+MRE: indirect-depth/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	n := 1
+	p := &n
+	fmt.Println(reflect.Indirect(reflect.ValueOf(&p)).Kind())
+}
+
+Go:
+ptr
+minigo:
+int
+
+11. ValueOf must reflect a reflect.Value itself
+Changed location: minireflect/minireflect.go:247
+
+MRE: value-of-value/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	v := reflect.ValueOf(1)
+	fmt.Println(reflect.ValueOf(v).Kind())
+}
+
+Go:
+struct
+minigo:
+int
+
+12. ValueOf must snapshot struct arguments
+Changed location: minireflect/minireflect.go:255
+
+MRE: valueof-struct-copy/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{ X int }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	s := S{X: 1}
+	v := reflect.ValueOf(s)
+	s.X = 9
+	fmt.Println(v.Field(0).Int())
+}
+
+Go:
+1
+minigo:
+9
+
+13. Read-only provenance must survive Elem and Slice
+Changed location: minireflect/rvalue.go:337
+
+MRE: private-pointer/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{ p *int }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	n := 1
+	s := S{p: &n}
+	v := reflect.ValueOf(&s).Elem().Field(0).Elem()
+	fmt.Println(v.CanSet(), v.CanInterface())
+	v.SetInt(9)
+	fmt.Println(n)
+}
+
+Go:
+false false
+panic
+minigo:
+true true
+9
+
+MRE: private-index/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{ x []int }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	s := S{x: []int{1}}
+	v := reflect.ValueOf(&s).Elem().Field(0).Slice(0, 1).Index(0)
+	fmt.Println(v.CanSet(), v.CanInterface())
+	v.SetInt(9)
+	fmt.Println(s.x[0])
+}
+
+Go:
+false false
+panic
+minigo:
+true true
+9
+
+14. Field refs must track struct storage across replacement
+Changed location: minireflect/rvalue.go:491
+
+MRE: struct-replacement/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{ X int }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	s := S{X: 1}
+	v := reflect.ValueOf(&s).Elem()
+	f := v.Field(0)
+	v.Set(reflect.ValueOf(S{X: 2}))
+	f.SetInt(3)
+	fmt.Println(s.X)
+}
+
+Go:
+3
+minigo:
+2
+
+15. Set and SetMapIndex must enforce assignability
+Changed location: minireflect/rvalue.go:1034
+
+MRE: set-type-check/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	n := 1
+	reflect.ValueOf(&n).Elem().Set(reflect.ValueOf("bad"))
+	fmt.Println(n)
+}
+
+Go:
+panic
+minigo:
+bad
+
+MRE: set-map-types/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	m := map[string]int{}
+	reflect.ValueOf(m).SetMapIndex(reflect.ValueOf("k"), reflect.ValueOf("bad"))
+	fmt.Println("returned")
+}
+
+Go:
+panic
+minigo:
+returned
+
+16. Scalar accessors and Field must enforce their accepted kinds
+Changed location: minireflect/rvalue.go:1098
+
+MRE: get-kind-check/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.ValueOf(1).Uint())
+}
+
+Go:
+panic
+minigo:
+1
+
+MRE: set-kind-check/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	n := 1
+	reflect.ValueOf(&n).Elem().SetString("bad")
+	fmt.Println(n)
+}
+
+Go:
+panic
+minigo:
+bad
+
+MRE: primitive-isnil/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.ValueOf(1).IsNil())
+}
+
+Go:
+panic
+minigo:
+false
+
+MRE: pointer-field/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{ X int }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	s := S{X: 1}
+	fmt.Println(reflect.ValueOf(&s).Field(0).Int())
+}
+
+Go:
+panic
+minigo:
+1
+
+17. Copy must copy struct elements by value
+Changed location: minireflect/minireflect.go:544
+
+MRE: copy-struct/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{ X int }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	src := []S{{X: 1}}
+	dst := make([]S, 1)
+	reflect.Copy(reflect.ValueOf(dst), reflect.ValueOf(src))
+	src[0].X = 9
+	fmt.Println(dst[0].X)
+}
+
+Go:
+1
+minigo:
+9
+
+18. Append must copy appended struct elements
+Changed location: minireflect/minireflect.go:492
+
+MRE: append-struct/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{ X int }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	s := S{X: 1}
+	v := reflect.Append(reflect.ValueOf([]S{}), reflect.ValueOf(&s).Elem())
+	s.X = 9
+	fmt.Println(v.Index(0).Field(0).Int())
+}
+
+Go:
+1
+minigo:
+9
+
+19. Append must reuse available backing capacity
+Changed location: minireflect/minireflect.go:492
+
+MRE: append-backing/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	s := make([]int, 1, 4)
+	v := reflect.Append(reflect.ValueOf(s), reflect.ValueOf(2))
+	v.Index(0).SetInt(9)
+	fmt.Println(s[0])
+}
+
+Go:
+9
+minigo:
+0
+
+20. SetMapIndex must copy struct values
+Changed location: minireflect/rvalue.go:742
+
+MRE: map-write-copy/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{ X int }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	s := S{X: 1}
+	m := map[string]S{}
+	reflect.ValueOf(m).SetMapIndex(reflect.ValueOf("k"), reflect.ValueOf(&s).Elem())
+	s.X = 9
+	fmt.Println(m["k"].X)
+}
+
+Go:
+1
+minigo:
+9
+
+21. Send must copy struct values
+Changed location: minireflect/rvalue.go:1390
+
+MRE: reflect-send-copy/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{ X int }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	ch := make(chan S, 1)
+	s := S{X: 1}
+	reflect.ValueOf(ch).Send(reflect.ValueOf(&s).Elem())
+	s.X = 9
+	fmt.Println((<-ch).X)
+}
+
+Go:
+1
+minigo:
+9
+
+22. Call must return zero values for a void function
+Changed location: minireflect/rvalue.go:1167
+
+MRE: call-void/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(len(reflect.ValueOf(func() {}).Call(nil)))
+}
+
+Go:
+0
+minigo:
+1
+
+23. CallSlice must expand the variadic tail
+Changed location: minireflect/rvalue.go:1172
+
+MRE: call-slice/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func sum(ns ...int) int {
+	n := 0
+	for _, v := range ns {
+		n += v
+	}
+	return n
+}
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	out := reflect.ValueOf(sum).CallSlice([]reflect.Value{reflect.ValueOf([]int{1, 2})})
+	fmt.Println(out[0].Int())
+}
+
+Go:
+3
+minigo:
+panic
+
+24. Comparable must recurse into structs and arrays
+Changed location: minireflect/rtype.go:705
+
+MRE: comparable-struct/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{ X []int }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.TypeOf(S{}).Comparable(), reflect.TypeOf([1][]int{}).Comparable())
+}
+
+Go:
+false false
+minigo:
+true true
+
+25. AssignableTo must support named-to-unnamed underlying compatibility
+Changed location: minireflect/rtype.go:676
+
+MRE: assignable-underlying/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S []int
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.TypeOf(S{}).AssignableTo(reflect.TypeOf([]int{})))
+}
+
+Go:
+true
+minigo:
+false
+
+26. ConvertibleTo must reject invalid conversions
+Changed location: minireflect/rtype.go:691
+
+MRE: convertible-invalid/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.TypeOf(1).ConvertibleTo(reflect.TypeOf(complex(1, 2))), reflect.TypeOf("").ConvertibleTo(reflect.TypeOf([]int{})))
+}
+
+Go:
+false false
+minigo:
+true true
+
+27. Equal must use Go comparable-value equality
+Changed location: minireflect/rvalue.go:1277
+
+MRE: equal-named/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type N int
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.ValueOf(N(1)).Equal(reflect.ValueOf(N(1))))
+}
+
+Go:
+true
+minigo:
+false
+
+MRE: equal-types/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type A struct{ X int }
+type B struct{ X int }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.ValueOf(A{X: 1}).Equal(reflect.ValueOf(B{X: 1})))
+}
+
+Go:
+false
+minigo:
+true
+
+MRE: equal-uncomparable/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.ValueOf([]int{1}).Equal(reflect.ValueOf([]int{1})))
+}
+
+Go:
+panic
+minigo:
+true
+
+28. Bytes must return a shared view
+Changed location: minireflect/rvalue.go:927
+
+MRE: bytes-alias/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	s := []byte{1}
+	reflect.ValueOf(s).Bytes()[0] = 9
+	fmt.Println(s[0])
+}
+
+Go:
+9
+minigo:
+1
+
+MRE: private-bytes/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{ p []byte }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	s := S{p: []byte{1}}
+	b := reflect.ValueOf(s).Field(0).Bytes()
+	b[0] = 9
+	fmt.Println(s.p[0])
+}
+
+Go:
+9
+minigo:
+1
+
+29. Synthesized map and array metadata must survive value construction
+Changed location: minireflect/minireflect.go:405
+
+MRE: array-constructor/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	t := reflect.ArrayOf(2, reflect.TypeOf(0))
+	v := reflect.Zero(t)
+	fmt.Println(t.Kind(), v.Kind(), t == v.Type())
+}
+
+Go:
+array array true
+minigo:
+array slice false
+
+MRE: map-constructor/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	t := reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(0))
+	v := reflect.MakeMap(t)
+	fmt.Println(t == v.Type(), v.Type().Key().Kind())
+}
+
+Go:
+true string
+minigo:
+false invalid
+
+30. Channel direction must remain part of the type
+Changed location: minireflect/minireflect.go:389
+
+MRE: chan-direction/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	t := reflect.TypeOf(0)
+	fmt.Println(reflect.ChanOf(reflect.RecvDir, t) == reflect.ChanOf(reflect.SendDir, t))
+}
+
+Go:
+false
+minigo:
+true
+
+MRE: chan-type-direction/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.TypeOf(make(chan int)) == reflect.TypeOf((<-chan int)(make(chan int))))
+}
+
+Go:
+false
+minigo:
+true
+
+31. Function dynamic types must retain their signature
+Changed location: minireflect/rvalue.go:150
+
+MRE: function-identity/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	f := func() {}
+	fmt.Println(reflect.TypeOf(f) == reflect.TypeOf(f))
+}
+
+Go:
+true
+minigo:
+false
+
+32. Implements must check signatures and require an interface target
+Changed location: minireflect/rtype.go:618
+
+MRE: interface-signature/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{}
+
+func (S) F(int) {}
+
+type I interface{ F(string) }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.TypeOf(S{}).Implements(reflect.TypeOf((*I)(nil)).Elem()))
+}
+
+Go:
+false
+minigo:
+true
+
+MRE: interface-noninterface/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{ X int }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.TypeOf(1).Implements(reflect.TypeOf(S{})))
+}
+
+Go:
+panic
+minigo:
+true
+
+33. Method sets must distinguish receivers and visibility
+Changed location: minireflect/rtype.go:565
+
+MRE: method-pointer-set/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{}
+
+func (*S) F() {}
+
+type I interface{ F() }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.TypeOf(S{}).NumMethod(), reflect.TypeOf(S{}).Implements(reflect.TypeOf((*I)(nil)).Elem()))
+}
+
+Go:
+0 false
+minigo:
+1 true
+
+MRE: method-export-filter/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{}
+
+func (S) f() {}
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.TypeOf(S{}).NumMethod())
+}
+
+Go:
+0
+minigo:
+1
+
+34. Method metadata must include Type and correct PkgPath
+Changed location: minireflect/rtype.go:579
+
+MRE: method-metadata/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type S struct{}
+
+func (S) F(int) {}
+func main()     { m := reflect.TypeOf(S{}).Method(0); fmt.Println(m.Type == nil, m.PkgPath == "") }
+
+Go:
+false true
+minigo:
+true false
+
+35. Convert to string must perform conversion instead of display formatting
+Changed location: minireflect/rvalue.go:1242
+
+MRE: convert-string/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	v := reflect.ValueOf([]byte{65, 66}).Convert(reflect.TypeOf(""))
+	fmt.Println(v.String())
+}
+
+Go:
+AB
+minigo:
+<[]uint8 Value>
+
+MRE: convert-integer-string/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	v := reflect.ValueOf(65).Convert(reflect.TypeOf(""))
+	fmt.Println(v.String())
+}
+
+Go:
+A
+minigo:
+<int Value>
+
+36. FieldByName must traverse embedded fields, including pointers
+Changed location: minireflect/rtype.go:549
+
+MRE: field-promotion/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type Inner struct{ X int }
+type S struct{ Inner }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.ValueOf(S{Inner: Inner{X: 1}}).FieldByName("X").IsValid())
+}
+
+Go:
+true
+minigo:
+false
+
+MRE: field-type-embedded-pointer/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type A struct{ X int }
+type S struct{ *A }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	f, ok := reflect.TypeOf(S{}).FieldByName("X")
+	fmt.Println(ok)
+	if ok {
+		fmt.Println(f.Index)
+	}
+}
+
+Go:
+true
+[0 0]
+minigo:
+false
+
+37. Unexported anonymous fields must retain PkgPath
+Changed location: minireflect/rtype.go:503
+
+MRE: private-struct-name/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type s struct{ X int }
+type S struct{ s }
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	f := reflect.TypeOf(S{}).Field(0)
+	fmt.Println(f.PkgPath == "")
+}
+
+Go:
+false
+minigo:
+true
+
+38. MapIter must skip deleted keys
+Changed location: minireflect/rvalue.go:781
+
+MRE: map-iter-delete/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	m := map[string]int{"a": 1}
+	it := reflect.ValueOf(m).MapRange()
+	delete(m, "a")
+	fmt.Println(it.Next())
+}
+
+Go:
+false
+minigo:
+true
+
+39. Slicing an array must produce a slice type
+Changed location: minireflect/rvalue.go:657
+
+MRE: array-slice-type/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	a := [2]int{1, 2}
+	v := reflect.ValueOf(&a).Elem().Slice(0, 1)
+	fmt.Println(v.Kind(), v.Type() == reflect.TypeOf([]int{}))
+}
+
+Go:
+slice true
+minigo:
+array false
+
+40. Promoted FieldRef lookup must prefer the shallowest match
+Changed location: runtime/value.go:227
+
+MRE: promoted-depth/main.go
+
+package main
+
+import "fmt"
+
+type A struct{ X int }
+type D struct{ A }
+type B struct{ X int }
+type S struct {
+	D
+	B
+}
+
+func main() { s := S{D: D{A: A{X: 1}}, B: B{X: 2}}; fmt.Println(*(&s.X), s.X) }
+
+Go:
+2 2
+minigo:
+1 2
+
+41. ArrayOf must reject negative lengths
+Changed location: minireflect/minireflect.go:403
+
+MRE: array-of-invalid/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.ArrayOf(-1, reflect.TypeOf(0)).Len())
+}
+
+Go:
+panic
+minigo:
+-1
+
+42. Array Index and Slice must retain addressability restrictions
+Changed location: minireflect/rvalue.go:638
+
+MRE: array-index-address/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	v := reflect.ValueOf([1]int{1}).Index(0)
+	fmt.Println(v.CanAddr(), v.CanSet())
+}
+
+Go:
+false false
+minigo:
+true true
+
+MRE: array-unaddressable-slice/main.go
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic")
+		}
+	}()
+	fmt.Println(reflect.ValueOf([2]int{}).Slice(0, 1).Len())
+}
+
+Go:
+panic
+minigo:
+1
+
