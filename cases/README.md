@@ -17,19 +17,18 @@
 `lim-*` cases are deliberate limitation probes: they use packages that are
 not bound into the interpreter and document how the failure presents.
 
-Latest run (2026-10-02): **34 PASS / 0 DIFF / 1 ACCEPT / 4 TRAP** — after
-the PR-30 leftover fixes, six of the ten `lim-*` probes now run like Go
-(lim-flag, lim-template, lim-bufio, lim-sha, lim-csv, lim-io pass; the
-packages involved are now bound). The remaining four TRAPs all land on
-the same boundary — `unsafe.Pointer` reinterpretation inside
-`internal/abi`/`reflect`-adjacent stdlib internals: `lim-http` (`net` init
-→ `unique.Make` → `abi.TypeFor`), `lim-yaml` (`gopkg.in/yaml.v3` resolves
-via GOMODCACHE but its init → `reflect.TypeOf` → `abi.TypeOf`), `lim-xml`
-(stdlib `encoding/xml` init needs `reflect`), and `lim-toml` (external
-`go-toml/v2`, same reflect boundary). Config-file reading works only for
-`encoding/json` (natively bound): jsonconfig/jsonlines/jsonptr PASS.
-The one ACCEPT is `inspectuse`: intentional, since `minigo.dev/inspect`
-exists only inside the interpreter and `go run` cannot compile it.
+Latest run (2026-10-03): **38 PASS / 0 DIFF / 1 ACCEPT / 3 TRAP** — after
+the minigo reflect-facade fix stack (podhmo/minigo Stack #168), `lim-yaml`
+passes end-to-end: `gopkg.in/yaml.v3`'s reflect-driven decode runs through
+the `minireflect` facade. `lim-xml` progressed past `encoding/xml` init
+and `rawToken` into the reflect-driven decoder and now traps on
+`reflect.TypeAssert[T]` (explicit type args on a bound builtin — not yet
+supported). The remaining TRAPs land on three distinct boundaries:
+`lim-toml` (`unsafe.Pointer` inside go-toml's `internal/danger`), and
+`lim-http` (`net/http` imports `golang.org/x/net/http/httpguts`, outside
+the module graph). The one ACCEPT is `inspectuse`: intentional, since
+`minigo.dev/inspect` exists only inside the interpreter and `go run`
+cannot compile it.
 
 ## Cases and what they exercise
 
@@ -62,6 +61,10 @@ exists only inside the interpreter and `go run` cannot compile it.
 | deferrecover | panic/recover + deferred cleanup | defer, recover, errors.New, fmt |
 | fnvsum | FNV-1a hash in pure script | uint64 literals/arithmetic, encoding/hex |
 | inspectuse | introspect own package (minigo-only, no oracle) | minigo.dev/inspect: Decls/Kind/Doc/Signature |
+| reflectset | string-map → typed struct override merge | reflect Elem/Field/CanSet/SetString/SetInt/SetBool, conf: tags |
+| reflectmap | map[string]any → struct mapper (mini codec) | reflect Field/Tag/Set/AssignableTo, `db:"-"` tags, type identity |
+| reflectvalid | struct-tag request validation | reflect NumField/Tag/IsZero |
+| reflectdeep | semantic equality + channel/slice driving | reflect.DeepEqual, ValueOf(chan) Send/Recv/Close, Copy |
 | lim-flag | CLI flag parsing (limitation probe) | flag |
 | lim-template | text/template rendering (probe) | text/template |
 | lim-http | HTTP request building (probe) | net/http |

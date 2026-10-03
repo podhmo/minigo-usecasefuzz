@@ -1,1 +1,1 @@
-2026/10/03 04:10:20 ERROR minigo error="runtime trap: undefined: reflect.TypeOf\nTraceback (most recent call first):\nFile \"/home/ubuntu/go/pkg/mod/gopkg.in/yaml.v3@v3.0.1/decode.go\", line 331, in yaml.__init__()\n\t\tnodeType       = reflect.TypeOf(Node{})\nFile \"/home/ubuntu/repos/minigo-usecasefuzz/cases/lim-yaml/main.go\", line 12, in main()\n\t\terr := yaml.Unmarshal([]byte(\"a: 1\\nb: two\\n\"), &v)"
+map[a:1 b:two] <nil>
