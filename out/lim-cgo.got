@@ -1,0 +1,1 @@
+2026/10/03 18:24:07 ERROR minigo error="initialize blank import \"github.com/mattn/go-sqlite3\": /home/ubuntu/go/pkg/mod/github.com/mattn/go-sqlite3@v1.14.52/backup.go:16:8: cgo is not supported: import \"C\""

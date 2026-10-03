@@ -1,0 +1,5 @@
+Order{ID: "A-1042", Items: [LineItem{SKU: "book", Qty: 2, Price: 1200} LineItem{SKU: "pen", Qty: 5, Price: 150}], BillTo: &Address{City: "Tokyo", Zip: "100-0001"}, Labels: {gift: "yes" priority: "high"}}
+&Address{City: "Tokyo", Zip: "100-0001"}
+[3 1 4]
+{a: 1 b: 2}
+nil
