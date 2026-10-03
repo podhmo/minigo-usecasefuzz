@@ -17,7 +17,7 @@
 `lim-*` cases are deliberate limitation probes: they use packages that are
 not bound into the interpreter and document how the failure presents.
 
-Latest run (2026-10-03): **41 PASS / 0 DIFF / 1 ACCEPT / 3 TRAP** — after
+Latest run (2026-10-03): **41 PASS / 0 DIFF / 1 ACCEPT / 1 REJECT / 3 TRAP** — after
 the minigo reflect-facade fix stack (podhmo/minigo Stack #168), `lim-yaml`
 passes end-to-end: `gopkg.in/yaml.v3`'s reflect-driven decode runs through
 the `minireflect` facade. `lim-xml` progressed past `encoding/xml` init
@@ -78,6 +78,7 @@ cannot compile it.
 | lim-sha | SHA-256 checksum (probe) | crypto/sha256 |
 | lim-csv | CSV reading (probe) | encoding/csv |
 | lim-io | io.ReadAll (probe) | io |
+| lim-cgo | cgo-dependent driver (probe) | github.com/mattn/go-sqlite3 — REJECT: `import "C"` refused at load |
 
 ## Usage
 
