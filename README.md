@@ -16,6 +16,9 @@ manipulation or systems code.
 - `concurrency/` — a separate harness: function-level probes + host-side
   checks for `go`/`chan`/`select`/`sync`/`time` semantics (see
   `concurrency/README.md`)
+- `bytes/` — a separate harness: per-byte cost probes for `[]byte`
+  crossing the script↔host boundary (ns/byte + allocs/byte per path;
+  see `bytes/README.md`)
 - `run.sh [case ...]` — builds `./out/minigo` from `$MINIGO_DIR` (default
   `~/repos/minigo`) and prints a verdict per case
 - `out/` — captured `.want` (go) and `.got` (minigo) outputs
