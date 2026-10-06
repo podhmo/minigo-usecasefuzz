@@ -1,0 +1,6 @@
+package pkg/api: state=indexed
+package pkg/api/dtos: state=indexed
+annotations: routes=117 responses=79 models=9
+spec: paths=207 responses=163 definitions=481
+drift: missing-path=1 wrong-opid=0 resp-drift=0 resp-missing=0 model-missing=0
+missing-path: POST /user/auth-tokens/rotate ( @user_token.go:110)

@@ -41,6 +41,7 @@ Verdicts: `PASS`, `DIFF` (silent divergence — a bug), `TRAP`, `REJECT`,
 | grafana-openapi | grafana | route registrations in `pkg/api/api.go` (func bodies) + `// swagger:route` comments, via `go/parser` | each other |
 | grafana-coreplugin | grafana | `coreplugin` plugin-ID consts, via `go/parser` (no package init) | `public/app/plugins/datasource/*/plugin.json` |
 | clickhouse-settings | clickhouse-datasource | `Settings` struct json tags, via `inspect` (surface only) | `CHConfig` in `src/types/config.ts` |
+| grafana-swagger-spec | grafana | `swagger:route`/`response`/`model` doc annotations in `pkg/api` + `pkg/api/dtos`, via `inspect` (surface only, annotation → spec direction) | `public/api-merged.json` |
 
 ## Reports
 
