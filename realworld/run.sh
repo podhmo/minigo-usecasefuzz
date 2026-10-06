@@ -11,6 +11,12 @@
 #   SRC_DIR     — where targets are cloned (default: ./.src, gitignored)
 #   TIMEOUT_SEC — per minigo run (default: 120)
 #   COLD=1      — also time the oracle with an empty GOCACHE (slow)
+#   PROFILE=1   — also run each task under prof/ (runtime/pprof around the
+#                 engine) and write out/<task>.{cpu,allocs}.pprof plus a
+#                 text summary out/<task>.prof.txt
+#   TRACE=1     — with PROFILE=1, also write out/<task>.trace (on macOS the
+#                 CPU profile can misattribute samples; the trace shows
+#                 what the main goroutine really did)
 #
 # GOCACHE is never cleared: cold timings use a throwaway temp dir.
 set -u
@@ -19,6 +25,8 @@ MINIGO_DIR="${MINIGO_DIR:-$ROOT/../../minigo}"
 SRC_DIR="${SRC_DIR:-$ROOT/.src}"
 TIMEOUT_SEC="${TIMEOUT_SEC:-120}"
 COLD="${COLD:-0}"
+PROFILE="${PROFILE:-0}"
+TRACE="${TRACE:-0}"
 OUT="$ROOT/out"
 BIN="$OUT/minigo"
 TIMEOUT=timeout
@@ -36,6 +44,36 @@ if [ ! -d "$MINIGO_DIR" ]; then
 	}
 fi
 (cd "$MINIGO_DIR" && go build -o "$BIN" ./cmd/minigo) || exit 1
+
+# build_prof — compile prof/ against $MINIGO_DIR through a generated module.
+build_prof() {
+	local mdir pdir="$OUT/prof-build"
+	mdir="$(cd "$MINIGO_DIR" && pwd)"
+	rm -rf "$pdir" && mkdir -p "$pdir" && cp "$ROOT/prof/main.go" "$pdir/" &&
+		cp "$mdir/go.sum" "$pdir/" &&
+		printf 'module realworld/prof\n\ngo 1.26\n\nrequire github.com/podhmo/minigo v0.0.0\n\nreplace github.com/podhmo/minigo => %s\n' "$mdir" > "$pdir/go.mod" &&
+		(cd "$pdir" && GOFLAGS=-mod=mod go build -o "$OUT/prof" .)
+}
+
+# summarize_prof NAME — top-N text views next to the raw profiles.
+summarize_prof() {
+	local name="$1" base="$OUT/$1"
+	{
+		echo "## cpu: flat"
+		go tool pprof -top -nodecount=25 "$OUT/prof" "$base.cpu.pprof" 2>/dev/null | sed -n '4,$p'
+		echo
+		echo "## cpu: cumulative (minigo frames)"
+		go tool pprof -top -cum -nodecount=200 "$OUT/prof" "$base.cpu.pprof" 2>/dev/null | grep 'podhmo/minigo' | head -30
+		echo
+		echo "## allocs: alloc_space"
+		go tool pprof -top -nodecount=20 -sample_index=alloc_space "$OUT/prof" "$base.allocs.pprof" 2>/dev/null | sed -n '4,$p'
+	} > "$base.prof.txt"
+}
+
+[ "$TRACE" = 1 ] && PROFILE=1
+if [ "$PROFILE" = 1 ]; then
+	build_prof || { echo "cannot build prof/ against $MINIGO_DIR" >&2; exit 1; }
+fi
 
 # fetch_target NAME — shallow-fetch the pinned commit and download modules once.
 fetch_target() {
@@ -112,4 +150,12 @@ for name in $TASKS; do
 		v="DIFF"
 	fi
 	printf '%-12s %-24s %9s %9s %9s\n' "$v" "$name" "$oracle" "$got_s" "$cold"
+
+	if [ "$PROFILE" = 1 ]; then
+		targs=""
+		[ "$TRACE" = 1 ] && targs="-trace"
+		res=$(cd "$dir" && $TIMEOUT "$TIMEOUT_SEC" "$OUT/prof" -dir . -out "$OUT/$name" $targs 2> "$OUT/$name.prof.err" | tail -1)
+		summarize_prof "$name"
+		printf '%-12s %-24s %s -> out/%s.prof.txt\n' "" "  profile" "$res" "$name"
+	fi
 done

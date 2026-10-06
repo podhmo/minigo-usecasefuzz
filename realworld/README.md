@@ -23,6 +23,13 @@ pin → TODO) is the `realworld` skill in podhmo/minigo.
   the oracle under an empty throwaway `GOCACHE` (the user's cache is never
   touched).
 
+- `prof/` — `runtime/pprof` around the minigo engine (the CLI has no
+  profiling flags). `PROFILE=1 ./run.sh [task ...]` builds it against
+  `$MINIGO_DIR` through a generated go.mod and writes, per task,
+  `out/<task>.cpu.pprof`, `out/<task>.allocs.pprof` and a text summary
+  `out/<task>.prof.txt` (flat CPU, cumulative minigo frames, alloc_space).
+  A task that traps still gets a profile of the run up to the trap.
+
 Verdicts: `PASS`, `DIFF` (silent divergence — a bug), `TRAP`, `REJECT`,
 `HANG` (timeout), `ORACLE-FAIL`, `SETUP-FAIL`.
 
@@ -41,3 +48,14 @@ inputs `inspect` can reach (surface) — when a task has to fall back to
 `go/parser` because `inspect` can't see something, note *what* it couldn't
 see; that gap is a finding. Keep `go run`-able when possible so the oracle
 is free.
+
+## Profiling notes
+
+- Open a profile with `go tool pprof -http=: out/prof out/<task>.cpu.pprof`
+  (`out/prof` is the binary that produced it).
+- **macOS:** heavy goroutine spawning (e.g. a helper goroutine per
+  `sync.Mutex.Lock`) can make the CPU profile pin most samples on libc
+  (`pthread_cond_signal`/`pthread_cond_wait`) and hide the interpreter.
+  `TRACE=1` adds `out/<task>.trace`; `go tool trace` shows whether the main
+  goroutine was actually running. If it was, trust the alloc profile and
+  re-profile on Linux or with the spawning path disabled.
