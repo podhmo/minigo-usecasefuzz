@@ -22,6 +22,11 @@ pin → TODO) is the `realworld` skill in podhmo/minigo.
 - `run.sh [task ...]` — verdict + wall times per task. `COLD=1` also times
   the oracle under an empty throwaway `GOCACHE` (the user's cache is never
   touched).
+- `compare.sh OLD_REF NEW_REF [--full] [--profile]` — same-sitting A/B
+  performance comparison of two minigo revisions over `probes/` plus light
+  tasks (interleaved runs, median deltas, exit 2 on regression). Probe runs
+  need no module downloads; `--full` adds grafana-openapi. The
+  grafana-swagger-* tasks are pitch/drift checks, not regression probes.
 
 - `prof/` — `runtime/pprof` around the minigo engine (the CLI has no
   profiling flags). `PROFILE=1 ./run.sh [task ...]` builds it against
@@ -29,6 +34,9 @@ pin → TODO) is the `realworld` skill in podhmo/minigo.
   `out/<task>.cpu.pprof`, `out/<task>.allocs.pprof` and a text summary
   `out/<task>.prof.txt` (flat CPU, cumulative minigo frames, alloc_space).
   A task that traps still gets a profile of the run up to the trap.
+- `probes/<name>/` — synthetic `func main()` perf probes for `compare.sh`
+  (no target checkout needed; output doubles as a correctness check when
+  two builds disagree).
 - `reports/` — measurement rounds as self-contained HTML (open in a browser).
 
 Verdicts: `PASS`, `DIFF` (silent divergence — a bug), `TRAP`, `REJECT`,
