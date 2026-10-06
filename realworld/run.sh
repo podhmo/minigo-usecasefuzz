@@ -20,6 +20,9 @@
 #
 # GOCACHE is never cleared: cold timings use a throwaway temp dir.
 set -u
+# Drop inherited GIT_* (e.g. GIT_DIR under `git bisect run` or a hook):
+# fetch_target's `git init`/`fetch` would otherwise hit the caller's repo.
+unset $(compgen -e GIT_)
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 MINIGO_DIR="${MINIGO_DIR:-$ROOT/../../minigo}"
 SRC_DIR="${SRC_DIR:-$ROOT/.src}"
