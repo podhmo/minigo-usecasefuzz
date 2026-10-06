@@ -29,6 +29,7 @@ pin → TODO) is the `realworld` skill in podhmo/minigo.
   `out/<task>.cpu.pprof`, `out/<task>.allocs.pprof` and a text summary
   `out/<task>.prof.txt` (flat CPU, cumulative minigo frames, alloc_space).
   A task that traps still gets a profile of the run up to the trap.
+- `reports/` — measurement rounds as self-contained HTML (open in a browser).
 
 Verdicts: `PASS`, `DIFF` (silent divergence — a bug), `TRAP`, `REJECT`,
 `HANG` (timeout), `ORACLE-FAIL`, `SETUP-FAIL`.
@@ -40,6 +41,18 @@ Verdicts: `PASS`, `DIFF` (silent divergence — a bug), `TRAP`, `REJECT`,
 | grafana-openapi | grafana | route registrations in `pkg/api/api.go` (func bodies) + `// swagger:route` comments, via `go/parser` | each other |
 | grafana-coreplugin | grafana | `coreplugin` plugin-ID consts, via `go/parser` (no package init) | `public/app/plugins/datasource/*/plugin.json` |
 | clickhouse-settings | clickhouse-datasource | `Settings` struct json tags, via `inspect` (surface only) | `CHConfig` in `src/types/config.ts` |
+
+## Reports
+
+| report | minigo | summary |
+|---|---|---|
+| [2026-10-07-measure.html](reports/2026-10-07-measure.html) | podhmo/minigo#534 | time to answer vs `go run` / `go vet` (warm and cold), the missing-modules run, CPU/alloc breakdown of grafana-openapi, GOGC sensitivity, peak RSS, ranked improvement room and usability gaps (Japanese) |
+
+A round re-measures with `./run.sh <task ...>` (3 runs). Native baselines use
+`go run .` for stdlib-only tasks and `go vet <pkg>` on the target as a stand-in
+for a typed loader, each warm and with a throwaway `GOCACHE`. The incomplete
+environment is an empty `GOMODCACHE` with `GOPROXY=off`. Profiles are taken
+without `TRACE=1`, because tracing skews the CPU split.
 
 ## Adding a task
 
