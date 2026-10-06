@@ -147,7 +147,8 @@ done
 
 # --- optional profile diff on regressed probes --------------------------
 build_prof() { # side worktree -> $OUT/cmp/prof-<side>
-	local side="$1" mdir="$2" pdir="$CMP/prof-build-$side"
+	local side="$1" mdir="$2"
+	local pdir="$CMP/prof-build-$side"
 	rm -rf "$pdir" && mkdir -p "$pdir" && cp "$ROOT/prof/main.go" "$pdir/" &&
 		cp "$mdir/go.sum" "$pdir/" &&
 		printf 'module realworld/prof\n\ngo 1.26\n\nrequire github.com/podhmo/minigo v0.0.0\n\nreplace github.com/podhmo/minigo => %s\n' "$mdir" > "$pdir/go.mod" &&
