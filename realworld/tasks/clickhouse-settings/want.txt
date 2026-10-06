@@ -1,0 +1,4 @@
+package state: indexed
+go=28 ts=34 go-only=7 ts-only=13
+go-only: [ProxyOptions (ProxyOptions) TlsCACert (TlsCACert) TlsClientCert (TlsClientCert) TlsClientKey (TlsClientKey) enableSchemaCache (EnableSchemaCache) rowLimit (RowLimit) schemaCacheTTLSeconds (SchemaCacheTTLSeconds)]
+ts-only: [aliasTables configMode defaultTable enableMapKeysDiscovery enableSecureSocksProxy hideTableNameInAdhocFilters httpHeaders logs pdcInjected signalType traces validateSql version]

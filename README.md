@@ -19,6 +19,9 @@ manipulation or systems code.
 - `bytes/` — a separate harness: per-byte cost probes for `[]byte`
   crossing the script↔host boundary (ns/byte + allocs/byte per path;
   see `bytes/README.md`)
+- `realworld/` — a separate harness: sync-tool scripts against pinned
+  real-world codebases (grafana, …) with wall times (see
+  `realworld/README.md`)
 - `run.sh [case ...]` — builds `./out/minigo` from `$MINIGO_DIR` (default
   `~/repos/minigo`) and prints a verdict per case
 - `out/` — captured `.want` (go) and `.got` (minigo) outputs
