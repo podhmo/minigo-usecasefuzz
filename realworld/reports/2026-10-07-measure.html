@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>minigo realworld 計測レポート — 改善の余地と実態</title>
+<style>
+.viz-root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --seq: #2a78d6;
+  --seq-muted: #b7d3f6;
+  --good: #0ca30c;
+  --critical: #d03b3b;
+  --warning: #fab219;
+  --good-text: #006300;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .viz-root {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface-1: #1a1a19;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
+    --seq: #3987e5; --seq-muted: #184f95; --good-text: #0ca30c;
+  }
+}
+:root[data-theme="dark"] .viz-root {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface-1: #1a1a19;
+  --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
+  --seq: #3987e5; --seq-muted: #184f95; --good-text: #0ca30c;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+.viz-root {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--page); color: var(--text-primary);
+  line-height: 1.6; padding: 32px 20px 64px;
+}
+main { max-width: 1040px; margin: 0 auto; }
+h1 { font-size: 26px; margin: 0 0 4px; font-weight: 650; }
+h2 { font-size: 19px; margin: 40px 0 8px; font-weight: 650; }
+h3 { font-size: 15px; margin: 20px 0 6px; font-weight: 650; }
+p, li { color: var(--text-secondary); }
+.meta { color: var(--text-muted); font-size: 13px; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin: 12px 0; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
+.kpi .label { font-size: 13px; color: var(--text-secondary); }
+.kpi .value { font-size: 30px; font-weight: 650; margin: 2px 0; color: var(--text-primary); }
+.kpi .sub { font-size: 13px; color: var(--text-muted); }
+.tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-primary); white-space: nowrap; }
+.tag::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.win { --c: var(--good); } .lose { --c: var(--critical); } .even { --c: var(--warning); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--text-secondary); font-weight: 600; font-size: 13px; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; background: var(--grid); padding: 0 4px; border-radius: 4px; color: var(--text-primary); }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--text-secondary); margin: 4px 0 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+svg text { fill: var(--text-muted); font-size: 12px; font-family: inherit; }
+svg .lbl { fill: var(--text-secondary); font-size: 13px; }
+svg .val { fill: var(--text-primary); font-size: 12px; font-variant-numeric: tabular-nums; }
+.chart { width: 100%; overflow-x: auto; }
+details { margin-top: 8px; }
+summary { cursor: pointer; color: var(--text-secondary); font-size: 13px; }
+#tip { position: fixed; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.12); display: none; z-index: 10; max-width: 320px; }
+#tip .v { font-weight: 650; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+#tip .k { color: var(--text-secondary); }
+.toggle { float: right; font-size: 12px; background: var(--surface-1); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+ol.prio li { margin-bottom: 10px; }
+.note { font-size: 13px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="viz-root">
+<main>
+<button class="toggle" id="themeBtn" type="button">テーマ切替</button>
+<h1>minigo realworld 計測レポート — 改善の余地と実態</h1>
+<div class="meta">2026-10-07 · minigo <code>1c6f9c3e</code>（#534 = main <code>44d50d7f</code> + 1）· harness podhmo/minigo-usecasefuzz <code>aef9fe1</code> · targets: grafana <code>fa8d6e65</code>, clickhouse-datasource <code>52a1bbdf</code> · Apple M4 / 10 cores / 32 GB · go1.27.1 darwin/arm64</div>
+
+<div class="kpis">
+  <div class="card kpi"><div class="label">realworld タスク</div><div class="value">3 / 3 PASS</div><div class="sub">出力は go run / golden と一致</div></div>
+  <div class="card kpi"><div class="label">grafana-openapi（最重タスク）</div><div class="value">3.29 s</div><div class="sub"><span class="tag lose">負け</span> go run はキャッシュ無しでも 1.90 s</div></div>
+  <div class="card kpi"><div class="label">clickhouse-settings（inspect）</div><div class="value">0.02 s</div><div class="sub"><span class="tag win">勝ち</span> 型付きで読む go vet は cold 17.4 s</div></div>
+  <div class="card kpi"><div class="label">モジュール無し・オフライン</div><div class="value">minigo は動く</div><div class="sub"><span class="tag win">勝ち</span> 同条件の go vet は依存取得に失敗</div></div>
+</div>
+
+<h2>1. 結論</h2>
+<div class="card">
+<p><b>前提：</b>インタプリタが go に勝てる根拠は「表層だけ読む」と「必要になるまで読まない（遅延）」の 2 つだけです。この 2 つが効かない処理で負けるのは自明で、以下の結果もその通りに分かれました。</p>
+<ul>
+<li><b>勝てる場所ははっきりしている。</b>対象コードベースの型や宣言を表層だけ読めばよい同期タスクでは、minigo は 0.02 s で答え、モジュールが無くても動きます。同じ情報を型付きで読む道具（代理として <code>go vet</code>）は、clickhouse で cold 17.4 s、grafana の <code>pkg/api</code> では cold 97.4 s・ピーク 2.8 GB かかります。</li>
+<li><b>標準ライブラリだけで済むスクリプトでは負ける。</b><code>go/parser</code> で grafana の API 定義を走査する grafana-openapi は、minigo 3.29 s に対し <code>go run</code> は cold 1.90 s、warm 0.05 s です。インタプリタの実行速度そのものが問われる場面で、ここは今後も勝ち目がありません。ただしインタプリタ性能のベンチマークとしては有用です。</li>
+<li><b>改善の余地はまだ大きい。</b>CPU の約 37% が GC とスケジューラで、アロケーション 2.11 GB の 34% がフレーム確保です。GC 設定だけで実測 −8%、フレームのプール化などを重ねれば 2 s 前後までは見込めます。</li>
+<li><b>「実態」の穴。</b>3 タスク中 2 つは <code>go/parser</code> で全ファイルを読んでおり、表層読みも遅延も効いていません。理由は、<code>inspect</code> が関数本体（ルート登録）と定数初期化子を見られないことです。ただし <code>swagger:route</code> の注釈は 121 件中 117 件がメソッドの doc コメントで、<code>inspect.Doc</code> で読めるので、タスク側の作りにも改善の余地があります。売りが一番効くはずの「grafana の大きなパッケージを表層で読む」タスクは、まだハーネスにありません。</li>
+</ul>
+</div>
+
+<h2>2. 答えが出るまでの時間（ビルド + 起動 + 実行）</h2>
+<p>各行で minigo と、同じ答えを出すネイティブの手段を比べます。ネイティブは「キャッシュあり（warm）」と「空の <code>GOCACHE</code>（cold）」の 2 点です。横軸は対数目盛です。</p>
+<div class="card">
+  <div class="legend" id="lg1"></div>
+  <div class="chart" id="c1"></div>
+  <p class="note">minigo は常に毎回ソースから読むので cold/warm の区別がありません（minigo 本体のビルドは別途 1 回だけ、cold 3.6 s）。grafana 2 タスクのネイティブは <code>go run .</code>、clickhouse-settings のネイティブは同じ情報を型付きで読む <code>go vet ./pkg/plugin</code> を代理にしています。</p>
+  <details><summary>表で見る</summary><table id="t1"></table></details>
+</div>
+
+<h3>勝ち負けの整理</h3>
+<div class="card"><table>
+<tr><th>場面</th><th>判定</th><th>実態</th></tr>
+<tr><td>標準ライブラリだけの解析スクリプト（grafana-openapi）</td><td><span class="tag lose">負け</span></td><td>minigo 3.29 s / go run cold 1.90 s / warm 0.05 s。go 側は stdlib のコンパイルだけで済み、実行は 0.05 s。</td></tr>
+<tr><td>小さな stdlib スクリプト（grafana-coreplugin）</td><td><span class="tag even">warm 互角 · cold 勝ち</span></td><td>minigo 0.07 s / warm 0.05 s / cold 2.04 s。初回だけ minigo が速い。</td></tr>
+<tr><td>対象パッケージの宣言を読む（clickhouse-settings）</td><td><span class="tag win">勝ち</span></td><td>minigo 0.02 s / go vet warm 0.39 s / cold 17.4 s。ピークメモリも 12 MB 対 76 MB。</td></tr>
+<tr><td>依存モジュールが無い・オフライン</td><td><span class="tag win">勝ち</span></td><td>minigo は 0.04 s で golden と一致。go vet は <code>go: downloading ...</code> で失敗。</td></tr>
+<tr><td>大きなパッケージを型付きで読む（grafana <code>pkg/api</code>）</td><td><span class="tag even">未計測</span></td><td>go vet は cold 97.4 s / warm 1.7〜2.2 s / ピーク 2.8 GB。minigo 側の同等タスクがまだ無い。</td></tr>
+</table></div>
+
+<h2>3. 最重タスク grafana-openapi の推移</h2>
+<p>このセッションで入れた性能 PR ごとの壁時計時間です。点ごとに計測した時間帯が異なるので、隣どうしの差（同じ時間帯に交互計測したもの）のほうが信頼できます。</p>
+<div class="card">
+  <div class="chart" id="c2"></div>
+  <details><summary>表で見る</summary><table id="t2"></table></details>
+</div>
+
+<h2>4. 時間とメモリはどこに消えているか（#534、grafana-openapi）</h2>
+<div class="card">
+  <h3>CPU サンプルの内訳（壁時計 3.3 s のあいだに 4.4 s、複数コア）</h3>
+  <div class="chart" id="c3"></div>
+  <p class="note">goroutine の入口ごとの累積（cum）で、互いにほぼ重なりません。インタプリタ本体の 49% の中にも、割り当て時の GC 補助が含まれます。macOS では待機中のスレッドが <code>pthread_cond_wait</code> として計上されます。</p>
+  <details><summary>表で見る</summary><table id="t3"></table></details>
+</div>
+<div class="card">
+  <h3>アロケーションの内訳（合計 2.11 GB、ピーク RSS は 39 MB）</h3>
+  <div class="chart" id="c4"></div>
+  <p class="note">寿命の短いオブジェクトを大量に作っては捨てています。ピークのメモリは小さいので、GC の頻度を下げる余裕があります。</p>
+  <details><summary>表で見る</summary><table id="t4"></table></details>
+</div>
+
+<h3>GC 設定（GOGC）を変えたときの時間（各 3 回）</h3>
+<div class="card"><table>
+<tr><th>GOGC</th><th class="num">1 回目</th><th class="num">2 回目</th><th class="num">3 回目</th><th class="num">中央値</th><th>コメント</th></tr>
+<tr><td>100（既定）</td><td class="num">3.26</td><td class="num">3.20</td><td class="num">3.23</td><td class="num">3.23 s</td><td></td></tr>
+<tr><td>200</td><td class="num">3.04</td><td class="num">3.08</td><td class="num">3.06</td><td class="num">3.06 s</td><td>−5%</td></tr>
+<tr><td>400</td><td class="num">2.97</td><td class="num">2.99</td><td class="num">2.96</td><td class="num">2.97 s</td><td><b>−8%</b>。ピーク RSS 39 MB なので余裕あり</td></tr>
+<tr><td>off</td><td class="num">3.13</td><td class="num">3.05</td><td class="num">3.03</td><td class="num">3.05 s</td><td>止めると逆にメモリ確保のコストで伸びる</td></tr>
+</table></div>
+
+<h3>ピークメモリ（RSS）</h3>
+<div class="card"><table>
+<tr><th>処理</th><th class="num">ピーク RSS</th></tr>
+<tr><td>minigo: grafana-openapi</td><td class="num">39 MB</td></tr>
+<tr><td>ネイティブバイナリ: grafana-openapi</td><td class="num">9 MB</td></tr>
+<tr><td>minigo: clickhouse-settings</td><td class="num">12 MB</td></tr>
+<tr><td>go vet: clickhouse <code>./pkg/plugin</code>（warm）</td><td class="num">76 MB</td></tr>
+<tr><td>go vet: grafana <code>./pkg/api</code>（warm）</td><td class="num">2,802 MB</td></tr>
+</table></div>
+
+<h2>5. 改善の余地（効きそうな順）</h2>
+<div class="card"><ol class="prio">
+<li><b>GC 設定を CLI で上げる</b>（例: <code>debug.SetGCPercent(400)</code>）。<b>実測 −0.26 s（−8%）</b>。数行で済み、最も安い。スクリプト用途ではピークメモリが小さいので副作用も小さい。</li>
+<li><b>フレームのプール化</b>（<code>prepFrame</code>、アロケーションの 34% = 0.73 GB）。GC が CPU の 22% を占めるので、ここが一番大きな塊。見込み −0.3〜0.5 s（推定）。TODO 済み。</li>
+<li><b>スタック確保と値の箱詰め</b>（<code>frame.push</code> 12%、<code>runtime.Tag</code> 11%）。スタックの事前確保や、タグ付けで新しい値を作らない工夫。</li>
+<li><b>インターフェース判定でのメソッド集合の 2 重走査</b>（<code>methodWalkU</code>、アロケーションの 16%、CPU 約 5%）。1 回の走査で両方の形を作る。キャッシュするなら REPL 向けの無効化が要る。見込み −0.15 s 程度。TODO 済み。</li>
+<li><b>#485 のセレクタ変更の見直し</b>（変数のフィールドを読むだけの <code>x.f</code> でも参照を作っている。参照が要るのはポインタレシーバのメソッド呼び出しだけ）。以前の計測で約 0.2 s。TODO 済み。</li>
+</ol>
+<p class="note">全部入れても 2 s 前後と見込まれ、<code>go run</code> warm の 0.05 s には届きません。性能改善の目的は「標準ライブラリだけのスクリプトで勝つこと」ではなく、「重い処理が混ざっても 3 分の痛みの閾値から十分遠くにいること」と、インタプリタのベンチマークとしての健全さです。</p>
+</div>
+
+<h2>6. 実態として見えている穴（性能以外）</h2>
+<div class="card"><table>
+<tr><th>軸</th><th>状態</th><th>内容</th></tr>
+<tr><td>動く（健全な環境）</td><td><span class="tag win">良好</span></td><td>3 / 3 PASS。ただしタスク数が 3 つと少ない。</td></tr>
+<tr><td>動く（不完全な環境）</td><td><span class="tag even">一部確認</span></td><td>clickhouse-settings で確認済み。grafana の大きなパッケージでは未確認。</td></tr>
+<tr><td>見える範囲</td><td><span class="tag lose">穴あり</span></td><td><code>inspect</code> は関数本体を見られず、2 タスクが <code>go/parser</code> に頼っている（<code>swagger:route</code> は 121 件中 117 件が doc コメントで <code>inspect.Doc</code> で読める。自由コメントの 4 件だけが見えない）。<code>inspect.Value</code> で定数を読むとパッケージの <code>init()</code> が走る。<code>reflect.StructTag.Get</code> が無い。</td></tr>
+<tr><td>わかる</td><td><span class="tag lose">穴あり</span></td><td><code>minigo run &lt;file.go&gt;</code> がファイルを受け付けない、<code>-h</code> が未知のフラグ、トレースバックが 1 行の slog に埋もれる、recover → 再 panic で元の位置が消える（すべて TODO 済み・未着手）。</td></tr>
+<tr><td>ハーネス</td><td><span class="tag even">要追加</span></td><td>売りが最も効く「grafana の大きなパッケージを <code>inspect</code> で表層だけ読む」タスクが無い。go vet が cold 97 s / 2.8 GB かかる領域で minigo がどう振る舞うかが、まだ測れていない。</td></tr>
+</table></div>
+
+<h2>7. 計測方法と注意</h2>
+<div class="card"><ul>
+<li>minigo の時間は <code>realworld/run.sh</code> の 3 回実行（#534: 3.38 / 3.29 / 3.26 s の中央値）。同じ時間帯に main（#531 まで）は 3.45〜3.49 s。</li>
+<li>ネイティブの cold は、毎回新しい一時 <code>GOCACHE</code> で測定。ユーザーのキャッシュは消していません。モジュールキャッシュは取得済み（grafana は約 5 GB）。</li>
+<li>不完全な環境は、空の <code>GOMODCACHE</code> + <code>GOPROXY=off</code> で再現。</li>
+<li>プロファイルは <code>realworld/prof</code> と同じ方法で、実行トレースなしで 2 回取得（結果はほぼ同じ）。</li>
+<li>grafana の <code>go vet</code> は <code>go.work</code> のワークスペースモードで実行（<code>-mod=mod</code> は使えないため）。</li>
+<li>推移グラフの点は計測した時間帯が異なります（同じマシン）。</li>
+</ul></div>
+</main>
+<div id="tip" role="tooltip"></div>
+</div>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  document.getElementById('themeBtn').addEventListener('click', () => {
+    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+  });
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs = {}, parent) => {
+    const n = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    if (parent) parent.appendChild(n);
+    return n;
+  };
+  const txt = (parent, x, y, s, attrs = {}) => { const t = el('text', { x, y, ...attrs }, parent); t.textContent = s; return t; };
+
+  const tip = document.getElementById('tip');
+  const showTip = (ev, rows) => {
+    tip.replaceChildren();
+    for (const [k, v] of rows) {
+      const d = document.createElement('div');
+      const vs = document.createElement('span'); vs.className = 'v'; vs.textContent = v;
+      const ks = document.createElement('span'); ks.className = 'k'; ks.textContent = ' ' + k;
+      d.append(vs, ks); tip.appendChild(d);
+    }
+    tip.style.display = 'block';
+    const r = ev.target.getBoundingClientRect ? ev.target.getBoundingClientRect() : { left: ev.clientX, top: ev.clientY, width: 0 };
+    const x = (ev.clientX ?? r.left + r.width / 2) + 14, y = (ev.clientY ?? r.top) + 14;
+    tip.style.left = Math.min(x, innerWidth - 340) + 'px';
+    tip.style.top = y + 'px';
+  };
+  const hideTip = () => { tip.style.display = 'none'; };
+  const hover = (node, rows) => {
+    node.setAttribute('tabindex', '0');
+    node.addEventListener('pointermove', e => showTip(e, rows));
+    node.addEventListener('pointerleave', hideTip);
+    node.addEventListener('focus', e => { const r = node.getBoundingClientRect(); showTip({ clientX: r.right, clientY: r.top, target: node }, rows); });
+    node.addEventListener('blur', hideTip);
+  };
+  const fill = (tableId, head, rows) => {
+    const t = document.getElementById(tableId);
+    const tr = document.createElement('tr');
+    head.forEach((h, i) => { const th = document.createElement('th'); th.textContent = h; if (i) th.className = 'num'; tr.appendChild(th); });
+    t.appendChild(tr);
+    for (const r of rows) {
+      const tr = document.createElement('tr');
+      r.forEach((c, i) => { const td = document.createElement('td'); td.textContent = c; if (i) td.className = 'num'; tr.appendChild(td); });
+      t.appendChild(tr);
+    }
+  };
+
+  // ---- chart 1: time-to-answer dot plot, log x ----
+  const SERIES = [
+    { key: 'minigo', name: 'minigo', color: 'var(--series-1)', shape: 'circle' },
+    { key: 'warm', name: 'ネイティブ（キャッシュあり）', color: 'var(--series-2)', shape: 'square' },
+    { key: 'cold', name: 'ネイティブ（キャッシュなし）', color: 'var(--series-3)', shape: 'diamond' },
+  ];
+  const ROWS = [
+    { label: 'grafana-openapi', sub: 'go/parser で api.go を走査 · 比較: go run', minigo: 3.29, warm: 0.05, cold: 1.90 },
+    { label: 'grafana-coreplugin', sub: 'go/parser + plugin.json · 比較: go run', minigo: 0.07, warm: 0.05, cold: 2.04 },
+    { label: 'clickhouse-settings', sub: 'inspect で Settings · 比較: go vet ./pkg/plugin', minigo: 0.02, warm: 0.39, cold: 17.44 },
+    { label: '同上・モジュール無し', sub: '空の GOMODCACHE + GOPROXY=off', minigo: 0.04, warm: null, cold: null, fail: 'go vet は失敗' },
+    { label: '参考: grafana pkg/api', sub: '型付きで読む go vet（minigo 側タスク未作成）', minigo: null, warm: 1.96, cold: 97.43 },
+  ];
+  const lg1 = document.getElementById('lg1');
+  const shape = (g, s, cx, cy, color) => {
+    const ring = 'var(--surface-1)';
+    if (s === 'circle') return el('circle', { cx, cy, r: 6, fill: color, stroke: ring, 'stroke-width': 2 }, g);
+    if (s === 'square') return el('rect', { x: cx - 5.5, y: cy - 5.5, width: 11, height: 11, rx: 2, fill: color, stroke: ring, 'stroke-width': 2 }, g);
+    return el('path', { d: `M${cx} ${cy - 7.5}L${cx + 7.5} ${cy}L${cx} ${cy + 7.5}L${cx - 7.5} ${cy}Z`, fill: color, stroke: ring, 'stroke-width': 2 }, g);
+  };
+  for (const s of SERIES) {
+    const sp = document.createElement('span');
+    const sv = el('svg', { width: 16, height: 16 }); shape(sv, s.shape, 8, 8, s.color);
+    sp.appendChild(sv); sp.appendChild(document.createTextNode(s.name)); lg1.appendChild(sp);
+  }
+  {
+    const W = 980, L = 300, R = 70, rowH = 52, top = 20, H = top + ROWS.length * rowH + 34;
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': '答えが出るまでの時間（対数目盛）' }, document.getElementById('c1'));
+    const lo = Math.log10(0.01), hi = Math.log10(200);
+    const X = v => L + (Math.log10(v) - lo) / (hi - lo) * (W - L - R);
+    for (const t of [0.01, 0.1, 1, 10, 100]) {
+      el('line', { x1: X(t), x2: X(t), y1: top - 6, y2: H - 30, stroke: 'var(--grid)', 'stroke-width': 1 }, svg);
+      txt(svg, X(t), H - 12, t >= 1 ? `${t} s` : `${t} s`, { 'text-anchor': 'middle' });
+    }
+    el('line', { x1: X(180), x2: X(180), y1: top - 6, y2: H - 30, stroke: 'var(--axis)', 'stroke-width': 1 }, svg);
+    txt(svg, X(180), H - 12, '3 分', { 'text-anchor': 'middle' });
+    ROWS.forEach((r, i) => {
+      const cy = top + i * rowH + rowH / 2;
+      txt(svg, 0, cy - 3, r.label, { class: 'lbl' });
+      txt(svg, 0, cy + 14, r.sub);
+      const vals = SERIES.map(s => r[s.key]).filter(v => v != null);
+      if (vals.length > 1) el('line', { x1: X(Math.min(...vals)), x2: X(Math.max(...vals)), y1: cy, y2: cy, stroke: 'var(--axis)', 'stroke-width': 2 }, svg);
+      for (const s of SERIES) {
+        const v = r[s.key];
+        if (v == null) continue;
+        const g = el('g', {}, svg);
+        el('circle', { cx: X(v), cy, r: 13, fill: 'transparent' }, g);
+        shape(g, s.shape, X(v), cy, s.color);
+        hover(g, [[`${v.toFixed(2)} s`, s.name], [r.label, '']]);
+      }
+      if (r.fail) txt(svg, X(r.minigo) + 14, cy + 4, '× ' + r.fail, { class: 'val' });
+      if (r.minigo != null && !r.fail) txt(svg, X(r.minigo), cy - 12, `${r.minigo.toFixed(2)} s`, { class: 'val', 'text-anchor': 'middle' });
+    });
+    fill('t1', ['場面', 'minigo (s)', 'キャッシュあり (s)', 'キャッシュなし (s)'],
+      ROWS.map(r => [r.label + '（' + r.sub + '）', r.minigo ?? '—', r.warm ?? (r.fail ? '失敗' : '—'), r.cold ?? (r.fail ? '失敗' : '—')]));
+  }
+
+  // ---- chart 2: grafana-openapi trajectory (single series line) ----
+  const TRAJ = [
+    ['最初の計測', '#505 時点', 5.5], ['#508', 'フィールド型キャッシュ', 4.0], ['#509', 'append 変換', 3.4], ['#515', 'Lock 高速化', 3.06],
+    ['main へ rebase', '#473/#485/#523', 4.0], ['#531', 'シグネチャキャッシュ', 3.47], ['#534', 'キャッシュ改良', 3.29],
+  ];
+  {
+    const W = 980, L = 56, R = 16, top = 28, ph = 220, H = top + ph + 64;
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': 'grafana-openapi の壁時計時間の推移' }, document.getElementById('c2'));
+    const step = (W - L - R) / TRAJ.length, Y = v => top + ph - v / 6 * ph, X = i => L + step / 2 + i * step;
+    for (const t of [0, 1, 2, 3, 4, 5, 6]) {
+      el('line', { x1: L, x2: W - R, y1: Y(t), y2: Y(t), stroke: t ? 'var(--grid)' : 'var(--axis)', 'stroke-width': 1 }, svg);
+      txt(svg, L - 8, Y(t) + 4, `${t} s`, { 'text-anchor': 'end' });
+    }
+    el('polyline', { points: TRAJ.map(([, , v], i) => `${X(i)},${Y(v)}`).join(' '), fill: 'none', stroke: 'var(--seq)', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
+    TRAJ.forEach(([a, b, v], i) => {
+      const g = el('g', {}, svg);
+      el('circle', { cx: X(i), cy: Y(v), r: 13, fill: 'transparent' }, g);
+      el('circle', { cx: X(i), cy: Y(v), r: 5, fill: 'var(--seq)', stroke: 'var(--surface-1)', 'stroke-width': 2 }, g);
+      hover(g, [[`${v.toFixed(2)} s`, `${a} ${b}`]]);
+      if (i === 0 || i === 3 || i === 4 || i === TRAJ.length - 1) txt(svg, X(i), Y(v) - 13, `${v.toFixed(2)} s`, { class: 'val', 'text-anchor': 'middle' });
+      txt(svg, X(i), top + ph + 22, a, { class: 'lbl', 'text-anchor': 'middle' });
+      txt(svg, X(i), top + ph + 40, b, { 'text-anchor': 'middle' });
+    });
+    fill('t2', ['時点', '壁時計 (s)'], TRAJ.map(([a, b, v]) => [`${a}（${b}）`, v.toFixed(2)]));
+  }
+
+  // ---- charts 3/4: horizontal bars, single hue ----
+  const hbar = (id, tid, data, unit, total, fmt) => {
+    const W = 980, L = 330, R = 120, bh = 20, gap = 14, top = 6, H = top + data.length * (bh + gap);
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img' }, document.getElementById(id));
+    const max = Math.max(...data.map(d => d[1])), X = v => v / max * (W - L - R);
+    el('line', { x1: L, x2: L, y1: 0, y2: H - gap / 2, stroke: 'var(--axis)', 'stroke-width': 1 }, svg);
+    data.forEach(([name, v, note], i) => {
+      const y = top + i * (bh + gap), w = Math.max(2, X(v));
+      txt(svg, L - 10, y + bh / 2 + 4, name, { class: 'lbl', 'text-anchor': 'end' });
+      const g = el('g', {}, svg);
+      el('rect', { x: L, y: y - 4, width: W - L - R + 60, height: bh + 8, fill: 'transparent' }, g);
+      const r = Math.min(4, w / 2);
+      el('path', { d: `M${L} ${y}H${L + w - r}Q${L + w} ${y} ${L + w} ${y + r}V${y + bh - r}Q${L + w} ${y + bh} ${L + w - r} ${y + bh}H${L}Z`, fill: note === 'muted' ? 'var(--seq-muted)' : 'var(--seq)' }, g);
+      const pct = (100 * v / total).toFixed(0);
+      txt(svg, L + w + 8, y + bh / 2 + 4, `${fmt(v)} ${unit}（${pct}%）`, { class: 'val' });
+      hover(g, [[`${fmt(v)} ${unit}`, name], [`${pct}%`, '全体に対して']]);
+    });
+    fill(tid, ['項目', unit, '%'], data.map(([n, v]) => [n, fmt(v), (100 * v / total).toFixed(1)]));
+  };
+  hbar('c3', 't3', [
+    ['インタプリタ本体（VM.loop）', 2.19],
+    ['GC のマーキング（gcDrain）', 0.97],
+    ['スケジューラ・待機（mcall）', 0.67],
+    ['その他（madvise・シグナル等）', 0.60, 'muted'],
+  ], 's', 4.43, v => v.toFixed(2));
+  hbar('c4', 't4', [
+    ['フレーム確保（prepFrame）', 0.73],
+    ['メソッド集合（methodWalkU）', 0.34],
+    ['スタック伸長（frame.push）', 0.25],
+    ['VM 本体の一時値（VM.loop）', 0.23],
+    ['値のタグ付け（runtime.Tag）', 0.22],
+    ['引数の取り出し（popArgs）', 0.06],
+    ['その他', 0.28, 'muted'],
+  ], 'GB', 2.11, v => v.toFixed(2));
+})();
+</script>
+</body>
+</html>
