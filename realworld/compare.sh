@@ -108,7 +108,11 @@ PROBES="micro"
 [ -d "$ROOT/tasks/clickhouse-settings" ] && PROBES="$PROBES clickhouse-settings"
 [ "$FULL" = 1 ] && PROBES="$PROBES grafana-openapi"
 
-declare -A MED_A MED_B DELTA VERDICT
+# per-probe results live in files: macOS ships bash 3.2, which has no
+# associative arrays (declare -A).
+RES="$CMP/res"; rm -rf "$RES"; mkdir -p "$RES"
+put() { printf '%s' "$3" > "$RES/$1.$2"; }          # put KEY PROBE VALUE
+get() { cat "$RES/$1.$2" 2>/dev/null || true; }      # get KEY PROBE
 for probe in $PROBES; do
 	case "$probe" in
 		clickhouse-settings) light_fetch clickhouse-datasource || { echo "skip $probe: target fetch failed" >&2; continue; }
@@ -125,12 +129,13 @@ for probe in $PROBES; do
 		s_b=$(run_probe "$BIN_B" "$dir"); out_b="$out_b$(cat "$CMP/probe.out")"
 		ta="$ta $s_a"; tb="$tb $s_b"
 	done
-	MED_A[$probe]=$(median $ta); MED_B[$probe]=$(median $tb)
-	DELTA[$probe]=$(perl -e "printf '%+.1f', (${MED_B[$probe]} - ${MED_A[$probe]}) * 100 / (${MED_A[$probe]} || 1)")
+	med_a=$(median $ta); med_b=$(median $tb)
+	delta=$(perl -e "printf '%+.1f', ($med_b - $med_a) * 100 / ($med_a || 1)")
+	put med_a "$probe" "$med_a"; put med_b "$probe" "$med_b"; put delta "$probe" "$delta"
 	if [ "$out_a" != "$out_b" ]; then
-		VERDICT[$probe]="OUTPUT-DIFF"
+		put verdict "$probe" "OUTPUT-DIFF"
 	else
-		VERDICT[$probe]=$(perl -e 'my ($d, $t) = @ARGV; print $d >= $t ? "REGRESSED" : $d <= -$t ? "IMPROVED" : "same"' -- "${DELTA[$probe]}" "$THRESHOLD_PCT")
+		put verdict "$probe" "$(perl -e 'my ($d, $t) = @ARGV; print $d >= $t ? "REGRESSED" : $d <= -$t ? "IMPROVED" : "same"' -- "$delta" "$THRESHOLD_PCT")"
 	fi
 done
 
@@ -139,10 +144,11 @@ echo
 printf '%-22s %9s %9s %8s  %s\n' probe "A($OLD_REF)" "B($NEW_REF)" 'delta%' verdict
 worst=0
 for probe in $PROBES; do
-	[ -n "${MED_A[$probe]:-}" ] || continue
-	printf '%-22s %9s %9s %8s  %s\n' "$probe" "${MED_A[$probe]}" "${MED_B[$probe]}" "${DELTA[$probe]}" "${VERDICT[$probe]}"
-	[ "${VERDICT[$probe]}" = "REGRESSED" ] && worst=1
-	[ "${VERDICT[$probe]}" = "OUTPUT-DIFF" ] && worst=1
+	[ -n "$(get med_a "$probe")" ] || continue
+	v=$(get verdict "$probe")
+	printf '%-22s %9s %9s %8s  %s\n' "$probe" "$(get med_a "$probe")" "$(get med_b "$probe")" "$(get delta "$probe")" "$v"
+	[ "$v" = "REGRESSED" ] && worst=1
+	[ "$v" = "OUTPUT-DIFF" ] && worst=1
 done
 
 # --- optional profile diff on regressed probes --------------------------
@@ -157,7 +163,7 @@ build_prof() { # side worktree -> $OUT/cmp/prof-<side>
 if [ "$PROFILE" = 1 ]; then
 	build_prof A "$WTA" && build_prof B "$WTB" || echo "prof build failed; skipping" >&2
 	for probe in $PROBES; do
-		[ "${VERDICT[$probe]:-}" = "REGRESSED" ] || continue
+		[ "$(get verdict "$probe")" = "REGRESSED" ] || continue
 		case "$probe" in
 			clickhouse-settings|grafana-openapi) dir="$ROOT/tasks/$probe" ;;
 			*) dir="$ROOT/probes/$probe" ;;
