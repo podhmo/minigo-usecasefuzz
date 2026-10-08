@@ -5,7 +5,10 @@
 # Each tasks/<name>/ is a standalone module (func main) reading the target
 # checkout from $TARGET_DIR. `target` names a row of targets.tsv. A task with
 # want.txt is minigo-only (e.g. imports minigo.dev/inspect) and is compared
-# against that golden file instead of `go run`.
+# against that golden file instead of `go run`. A task with an executable
+# task.sh drives a whole program instead of being one: the oracle is
+# `task.sh native`, the minigo side `task.sh minigo <BIN>` (see
+# tasks/oapi-codegen-examples). A `timeout_sec` file overrides TIMEOUT_SEC.
 #
 #   MINIGO_DIR  — podhmo/minigo checkout (default: sibling clone)
 #   SRC_DIR     — where targets are cloned (default: ./.src, gitignored)
@@ -113,7 +116,21 @@ for name in $TASKS; do
 	export TARGET_DIR="$SRC_DIR/$target"
 
 	cold="-"
-	if [ -f "$dir/want.txt" ]; then
+	tsec="$TIMEOUT_SEC"
+	[ -f "$dir/timeout_sec" ] && tsec="$(cat "$dir/timeout_sec")"
+	if [ -x "$dir/task.sh" ]; then
+		t0=$(now)
+		(cd "$dir" && ./task.sh native) > "$OUT/$name.want" 2>&1
+		want_rc=$?
+		oracle=$(elapsed "$t0" "$(now)")
+		if [ "$COLD" = 1 ]; then
+			cache="$(mktemp -d)"
+			t0=$(now)
+			(cd "$dir" && GOCACHE="$cache" ./task.sh native) > /dev/null 2>&1
+			cold=$(elapsed "$t0" "$(now)")
+			rm -rf "$cache"
+		fi
+	elif [ -f "$dir/want.txt" ]; then
 		cp "$dir/want.txt" "$OUT/$name.want"
 		want_rc=0
 		oracle="-"
@@ -133,7 +150,11 @@ for name in $TASKS; do
 	fi
 
 	t0=$(now)
-	(cd "$dir" && $TIMEOUT "$TIMEOUT_SEC" "$BIN" run .) > "$OUT/$name.got" 2>&1
+	if [ -x "$dir/task.sh" ]; then
+		(cd "$dir" && $TIMEOUT "$tsec" ./task.sh minigo "$BIN") > "$OUT/$name.got" 2>&1
+	else
+		(cd "$dir" && $TIMEOUT "$tsec" "$BIN" run .) > "$OUT/$name.got" 2>&1
+	fi
 	got_rc=$?
 	got_s=$(elapsed "$t0" "$(now)")
 
@@ -154,7 +175,9 @@ for name in $TASKS; do
 	fi
 	printf '%-12s %-24s %9s %9s %9s\n' "$v" "$name" "$oracle" "$got_s" "$cold"
 
-	if [ "$PROFILE" = 1 ]; then
+	if [ "$PROFILE" = 1 ] && [ -x "$dir/task.sh" ]; then
+		printf '%-12s %-24s %s\n' "" "  profile" "skipped (task.sh drives a program, not one main)"
+	elif [ "$PROFILE" = 1 ]; then
 		targs=""
 		[ "$TRACE" = 1 ] && targs="-trace"
 		res=$(cd "$dir" && $TIMEOUT "$TIMEOUT_SEC" "$OUT/prof" -dir . -out "$OUT/$name" $targs 2> "$OUT/$name.prof.err" | tail -1)

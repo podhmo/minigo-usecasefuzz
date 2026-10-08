@@ -18,7 +18,10 @@ pin → TODO) is the `realworld` skill in podhmo/minigo.
 - `tasks/<name>/` — one standalone module per task (`func main()`), reading
   the target checkout from `$TARGET_DIR`; `target` names the targets.tsv row.
   A task with `want.txt` is minigo-only (it imports `minigo.dev/inspect`) and
-  is compared against that golden file instead of `go run`.
+  is compared against that golden file instead of `go run`. A task with an
+  executable `task.sh` drives a whole program instead: `task.sh native` is the
+  oracle and `task.sh minigo <BIN>` the minigo side; an optional
+  `timeout_sec` file overrides `TIMEOUT_SEC`.
 - `run.sh [task ...]` — verdict + wall times per task. `COLD=1` also times
   the oracle under an empty throwaway `GOCACHE` (the user's cache is never
   touched).
@@ -49,7 +52,15 @@ Verdicts: `PASS`, `DIFF` (silent divergence — a bug), `TRAP`, `REJECT`,
 | grafana-openapi | grafana | route registrations in `pkg/api/api.go` (func bodies) + `// swagger:route` comments, via `go/parser` | each other |
 | grafana-coreplugin | grafana | `coreplugin` plugin-ID consts, via `go/parser` (no package init) | `public/app/plugins/datasource/*/plugin.json` |
 | clickhouse-settings | clickhouse-datasource | `Settings` struct json tags, via `inspect` (surface only) | `CHConfig` in `src/types/config.ts` |
+| oapi-codegen-examples | oapi-codegen | every `go:generate` line in `examples/` (53), running `cmd/oapi-codegen` itself under minigo (`--src text/template,encoding/json,…`) via `task.sh` | the natively built `cmd/oapi-codegen` (rc + sha256 of every written file) |
 | grafana-swagger-spec | grafana | `swagger:route`/`response`/`model` doc annotations in `pkg/api` + `pkg/api/dtos`, via `inspect` (surface only, annotation → spec direction) | `public/api-merged.json` |
+
+Run a single task by name: `./run.sh grafana-openapi`, `./run.sh
+oapi-codegen-examples`. oapi-codegen-examples is a compatibility/perf
+workload, not the pitch: code generation executes nearly the whole program
+(kin-openapi, text/template, json/v2, goimports), so minigo's lazy partial
+loading does not help and the run shows raw interpreter speed (~5 min for the
+53 lines vs ~7 s native). It is not part of `compare.sh`.
 
 ## Reports
 
