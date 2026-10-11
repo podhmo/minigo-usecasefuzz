@@ -23,7 +23,8 @@
 	"required": [
 		"level",
 		"pat",
-		"re"
+		"re",
+		"req"
 	],
 	"type": "object"
 }

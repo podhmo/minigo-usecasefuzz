@@ -1,0 +1,30 @@
+{
+	"$defs": {
+		"Box": {
+			"additionalProperties": true,
+			"properties": {
+				"v": {
+					"description": "type parameter T"
+				}
+			},
+			"required": [
+				"v"
+			],
+			"type": "object"
+		},
+		"IntBox": {
+			"$ref": "#/$defs/Box"
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"b": {
+			"$ref": "#/$defs/IntBox"
+		}
+	},
+	"required": [
+		"b"
+	],
+	"type": "object"
+}

@@ -2,7 +2,7 @@ panic: assignment to entry in nil map
 Traceback (most recent call first):
 File "MINIGO-usecasefuzz/extract-schema/cases/p07-plugin-trap/plug/plugin.go", line 7, in Install()
 		m["boom"] = 1 // write to nil map
-File "MINIGO-usecasefuzz/extract-schema/cases/p07-plugin-trap/script/main.go", line 148, in generator.loadPlugins()
+File "MINIGO-usecasefuzz/extract-schema/cases/p07-plugin-trap/script/main.go", line 154, in generator.loadPlugins()
 		inspect.Value(pp, d.Name).(func(*extschema.Config))(g.cfg)
-File "MINIGO-usecasefuzz/extract-schema/cases/p07-plugin-trap/script/main.go", line 48, in Main()
+File "MINIGO-usecasefuzz/extract-schema/cases/p07-plugin-trap/script/main.go", line 54, in Main()
 		if err := g.loadPlugins(pluginDirs); err != nil {

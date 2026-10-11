@@ -1,4 +1,0 @@
-runtime trap: resolve dir "example.com/m": entry "example.com/m" not found: stat MINIGO-usecasefuzz/extract-schema/cases/m04-pkg-mode/example.com/m: no such file or directory
-Traceback (most recent call first):
-File "MINIGO-usecasefuzz/extract-schema/cases/m04-pkg-mode/script/main.go", line 31, in Main()
-		pkg := inspect.DirOf(target)

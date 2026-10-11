@@ -12,7 +12,7 @@
 			"type": "string"
 		},
 		"Str": {
-			"type": "integer"
+			"type": "string"
 		},
 		"j": {
 			"type": "string"

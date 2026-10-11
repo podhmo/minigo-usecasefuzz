@@ -2,9 +2,6 @@
 	"$defs": {
 		"Point": {
 			"additionalProperties": true,
-			"enum": [
-				"{0 0}"
-			],
 			"properties": {
 				"x": {
 					"type": "integer"

@@ -1,0 +1,20 @@
+{
+	"$defs": {
+		"IP": {
+			"contentEncoding": "base64",
+			"description": "An IP is a single IP address, a slice of bytes.\nFunctions in this package accept either 4-byte (IPv4)\nor 16-byte (IPv6) slices as input.\n\nNote that in this documentation, referring to an\nIP address as an IPv4 address or an IPv6 address\nis a semantic property of the address, not just the\nlength of the byte slice: a 16-byte slice can still\nbe an IPv4 address.",
+			"type": "string"
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"ip": {
+			"$ref": "#/$defs/IP"
+		}
+	},
+	"required": [
+		"ip"
+	],
+	"type": "object"
+}

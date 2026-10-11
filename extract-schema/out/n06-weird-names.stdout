@@ -16,7 +16,18 @@
 		"Δelta": {
 			"additionalProperties": true,
 			"description": "a non-ASCII uppercase name: exported by Go's rule",
-			"properties": {},
+			"properties": {
+				"dy": {
+					"$ref": "#/$defs/string"
+				},
+				"sx": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"dy",
+				"sx"
+			],
 			"type": "object"
 		}
 	},

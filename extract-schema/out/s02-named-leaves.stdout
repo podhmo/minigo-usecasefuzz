@@ -4,11 +4,8 @@
 			"type": "integer"
 		},
 		"Bytes": {
-			"items": {
-				"minimum": 0,
-				"type": "integer"
-			},
-			"type": "array"
+			"contentEncoding": "base64",
+			"type": "string"
 		},
 		"Celsius": {
 			"type": "number"

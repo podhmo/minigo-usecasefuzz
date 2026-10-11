@@ -11,8 +11,8 @@
 		"Mixed": {
 			"description": "Mixed picks up only the members typed Mixed — Free stays out.",
 			"enum": [
-				"1",
-				"2"
+				1,
+				2
 			],
 			"type": "integer"
 		},
@@ -22,10 +22,10 @@
 		},
 		"Perm": {
 			"enum": [
-				"1",
-				"2",
-				"4",
-				"8"
+				1,
+				2,
+				4,
+				8
 			],
 			"type": "integer"
 		},

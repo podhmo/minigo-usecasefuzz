@@ -1,6 +1,1 @@
-panic: interface conversion: interface {} is func(*extschema.Config, *extschema.Config), not func(*extschema.Config)
-Traceback (most recent call first):
-File "MINIGO-usecasefuzz/extract-schema/cases/p05-plugin-wrongsig/script/main.go", line 148, in generator.loadPlugins()
-		inspect.Value(pp, d.Name).(func(*extschema.Config))(g.cfg)
-File "MINIGO-usecasefuzz/extract-schema/cases/p05-plugin-wrongsig/script/main.go", line 48, in Main()
-		if err := g.loadPlugins(pluginDirs); err != nil {
+extract-schema: plugin ./plug exposes no func(*extschema.Config)
