@@ -168,7 +168,7 @@ for name in $TASKS; do
 		else
 			v="REJECT"
 		fi
-	elif diff -q "$OUT/$name.want" "$OUT/$name.got" > /dev/null; then
+	elif diff -q <(grep -vE '^go: (downloading|finding|extracting|upgrading|downgrading|added|removed|fixing|installed) ' "$OUT/$name.want") <(grep -vE '^go: (downloading|finding|extracting|upgrading|downgrading|added|removed|fixing|installed) ' "$OUT/$name.got") > /dev/null; then
 		v="PASS"
 	else
 		v="DIFF"
