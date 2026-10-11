@@ -1,0 +1,15 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"price": {
+			"description": "[p1] Price is the price. [p2]",
+			"note": "from plug2",
+			"type": "integer"
+		}
+	},
+	"required": [
+		"price"
+	],
+	"type": "object"
+}

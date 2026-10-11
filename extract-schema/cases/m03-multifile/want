@@ -1,0 +1,29 @@
+{
+	"$defs": {
+		"First": {
+			"additionalProperties": true,
+			"properties": {
+				"a": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"a"
+			],
+			"type": "object"
+		},
+		"Second": {
+			"additionalProperties": true,
+			"properties": {
+				"b": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"b"
+			],
+			"type": "object"
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#"
+}

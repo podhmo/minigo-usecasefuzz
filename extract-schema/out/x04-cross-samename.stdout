@@ -1,0 +1,43 @@
+{
+	"$defs": {
+		"Money": {
+			"additionalProperties": true,
+			"properties": {
+				"amount": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"amount"
+			],
+			"type": "object"
+		},
+		"Money_b": {
+			"additionalProperties": true,
+			"properties": {
+				"cents": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"cents"
+			],
+			"type": "object"
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"x": {
+			"$ref": "#/$defs/Money"
+		},
+		"y": {
+			"$ref": "#/$defs/Money_b"
+		}
+	},
+	"required": [
+		"x",
+		"y"
+	],
+	"type": "object"
+}

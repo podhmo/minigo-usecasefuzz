@@ -1,0 +1,21 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"own": {
+			"type": "integer"
+		},
+		"x": {
+			"type": "integer"
+		},
+		"y": {
+			"type": "string"
+		}
+	},
+	"required": [
+		"own",
+		"x",
+		"y"
+	],
+	"type": "object"
+}

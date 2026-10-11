@@ -1,0 +1,17 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"mu": {
+			"description": "stdlib type sync.Mutex (walk stopped)"
+		},
+		"once": {
+			"description": "stdlib type sync.Once (walk stopped)"
+		}
+	},
+	"required": [
+		"mu",
+		"once"
+	],
+	"type": "object"
+}

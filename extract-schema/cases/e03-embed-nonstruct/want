@@ -1,0 +1,27 @@
+{
+	"$defs": {
+		"MyInt": {
+			"type": "integer"
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"Duration": {
+			"description": "stdlib type time.Duration (walk stopped)"
+		},
+		"MyInt": {
+			"$ref": "#/$defs/MyInt"
+		},
+		"int": {
+			"type": "integer"
+		},
+		"name": {
+			"type": "string"
+		}
+	},
+	"required": [
+		"name"
+	],
+	"type": "object"
+}

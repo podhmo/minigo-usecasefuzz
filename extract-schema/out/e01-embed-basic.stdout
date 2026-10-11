@@ -1,0 +1,50 @@
+{
+	"$defs": {
+		"Base": {
+			"additionalProperties": true,
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"self": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"id",
+				"self"
+			],
+			"type": "object"
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"id": {
+			"type": "string"
+		},
+		"m": {
+			"type": "integer"
+		},
+		"own": {
+			"type": "integer"
+		},
+		"pb": {
+			"type": "string"
+		},
+		"self": {
+			"type": "integer"
+		},
+		"tb": {
+			"$ref": "#/$defs/Base"
+		}
+	},
+	"required": [
+		"id",
+		"m",
+		"own",
+		"self",
+		"tb"
+	],
+	"type": "object"
+}

@@ -1,0 +1,4 @@
+runtime trap: resolve dir "time": entry "time" not found: stat MINIGO-usecasefuzz/extract-schema/cases/m05-pkg-stdlib/time: no such file or directory
+Traceback (most recent call first):
+File "MINIGO-usecasefuzz/extract-schema/cases/m05-pkg-stdlib/script/main.go", line 31, in Main()
+		pkg := inspect.DirOf(target)

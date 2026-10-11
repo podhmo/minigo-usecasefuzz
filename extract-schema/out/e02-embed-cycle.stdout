@@ -1,0 +1,42 @@
+{
+	"$defs": {
+		"A": {
+			"additionalProperties": true,
+			"properties": {
+				"B": {
+					"$ref": "#/$defs/B"
+				},
+				"a_name": {
+					"type": "string"
+				},
+				"b_name": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"a_name"
+			],
+			"type": "object"
+		},
+		"B": {
+			"additionalProperties": true,
+			"properties": {
+				"A": {
+					"$ref": "#/$defs/A"
+				},
+				"a_name": {
+					"type": "string"
+				},
+				"b_name": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"b_name"
+			],
+			"type": "object"
+		}
+	},
+	"$ref": "#/$defs/A",
+	"$schema": "http://json-schema.org/draft-07/schema#"
+}

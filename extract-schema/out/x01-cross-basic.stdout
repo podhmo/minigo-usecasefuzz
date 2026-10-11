@@ -1,0 +1,31 @@
+{
+	"$defs": {
+		"Meta": {
+			"additionalProperties": true,
+			"properties": {
+				"kind": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"kind"
+			],
+			"type": "object"
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"dep": {
+			"$ref": "#/$defs/Meta"
+		},
+		"name": {
+			"type": "string"
+		}
+	},
+	"required": [
+		"dep",
+		"name"
+	],
+	"type": "object"
+}

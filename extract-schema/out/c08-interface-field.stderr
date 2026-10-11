@@ -1,0 +1,1 @@
+type Sink: field W: unsupported non-empty interface type

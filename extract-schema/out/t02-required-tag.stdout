@@ -1,0 +1,28 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"a": {
+			"type": "integer"
+		},
+		"b": {
+			"type": "integer"
+		},
+		"c": {
+			"type": "integer"
+		},
+		"d": {
+			"type": "integer"
+		},
+		"e": {
+			"type": "integer"
+		}
+	},
+	"required": [
+		"a",
+		"c",
+		"d",
+		"e"
+	],
+	"type": "object"
+}

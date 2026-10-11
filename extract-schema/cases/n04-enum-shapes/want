@@ -1,0 +1,49 @@
+{
+	"$defs": {
+		"Color": {
+			"enum": [
+				"red",
+				"green",
+				"blue"
+			],
+			"type": "string"
+		},
+		"Mixed": {
+			"description": "Mixed picks up only the members typed Mixed — Free stays out.",
+			"enum": [
+				1,
+				2
+			],
+			"type": "integer"
+		},
+		"NoMembers": {
+			"description": "NoMembers is a named type with no const block.",
+			"type": "integer"
+		},
+		"Perm": {
+			"enum": [
+				1,
+				2,
+				4,
+				8
+			],
+			"type": "integer"
+		},
+		"Solo": {
+			"description": "Solo has exactly one member.",
+			"enum": [
+				"only"
+			],
+			"type": "string"
+		},
+		"Split": {
+			"description": "Split declares members across two const blocks.",
+			"enum": [
+				"s1",
+				"s2"
+			],
+			"type": "string"
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#"
+}

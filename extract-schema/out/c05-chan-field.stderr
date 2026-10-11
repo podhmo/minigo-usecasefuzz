@@ -1,0 +1,1 @@
+type Bus: field In: unsupported type shape "chan int" (ChanType)

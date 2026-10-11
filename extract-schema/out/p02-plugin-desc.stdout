@@ -1,0 +1,15 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"description": "DOC IS A FIXTURE TYPE.",
+	"properties": {
+		"name": {
+			"description": "field: Name holds the name.",
+			"type": "string"
+		}
+	},
+	"required": [
+		"name"
+	],
+	"type": "object"
+}

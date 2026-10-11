@@ -1,0 +1,1 @@
+type Handler: unsupported type shape "func(int) error" (FuncType)

@@ -1,0 +1,29 @@
+{
+	"$defs": {
+		"Duration": {
+			"description": "A Duration represents the elapsed time between two instants\nas an int64 nanosecond count. The representation limits the\nlargest representable duration to approximately 290 years.",
+			"enum": [
+				1,
+				1000,
+				1000000,
+				1000000000,
+				60000000000,
+				3600000000000,
+				-9223372036854775808,
+				9223372036854775807
+			],
+			"type": "integer"
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"for": {
+			"$ref": "#/$defs/Duration"
+		}
+	},
+	"required": [
+		"for"
+	],
+	"type": "object"
+}

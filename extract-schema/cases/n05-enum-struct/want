@@ -1,0 +1,21 @@
+{
+	"$defs": {
+		"Point": {
+			"additionalProperties": true,
+			"properties": {
+				"x": {
+					"type": "integer"
+				},
+				"y": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"x",
+				"y"
+			],
+			"type": "object"
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#"
+}

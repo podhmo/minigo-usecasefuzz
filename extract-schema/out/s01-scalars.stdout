@@ -1,0 +1,99 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"description": "All exercises the full builtin surface of the type mapping.",
+	"properties": {
+		"any": {
+			"additionalProperties": true,
+			"description": "any (interface{})",
+			"type": "object"
+		},
+		"b": {
+			"type": "boolean"
+		},
+		"by": {
+			"minimum": 0,
+			"type": "integer"
+		},
+		"c128": {
+			"type": "number"
+		},
+		"c64": {
+			"type": "number"
+		},
+		"f32": {
+			"type": "number"
+		},
+		"f64": {
+			"type": "number"
+		},
+		"i": {
+			"type": "integer"
+		},
+		"i16": {
+			"type": "integer"
+		},
+		"i32": {
+			"type": "integer"
+		},
+		"i64": {
+			"type": "integer"
+		},
+		"i8": {
+			"type": "integer"
+		},
+		"r": {
+			"type": "integer"
+		},
+		"s": {
+			"type": "string"
+		},
+		"u": {
+			"minimum": 0,
+			"type": "integer"
+		},
+		"u16": {
+			"minimum": 0,
+			"type": "integer"
+		},
+		"u32": {
+			"minimum": 0,
+			"type": "integer"
+		},
+		"u64": {
+			"minimum": 0,
+			"type": "integer"
+		},
+		"u8": {
+			"minimum": 0,
+			"type": "integer"
+		},
+		"up": {
+			"minimum": 0,
+			"type": "integer"
+		}
+	},
+	"required": [
+		"any",
+		"b",
+		"by",
+		"c128",
+		"c64",
+		"f32",
+		"f64",
+		"i",
+		"i16",
+		"i32",
+		"i64",
+		"i8",
+		"r",
+		"s",
+		"u",
+		"u16",
+		"u32",
+		"u64",
+		"u8",
+		"up"
+	],
+	"type": "object"
+}

@@ -1,0 +1,43 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"Inline": {
+			"type": "string"
+		},
+		"Omit": {
+			"type": "string"
+		},
+		"Other": {
+			"type": "string"
+		},
+		"Str": {
+			"type": "integer"
+		},
+		"j": {
+			"type": "string"
+		},
+		"jname": {
+			"type": "string"
+		},
+		"renamed": {
+			"type": "string"
+		},
+		"t": {
+			"type": "string"
+		},
+		"y": {
+			"type": "string"
+		}
+	},
+	"required": [
+		"Inline",
+		"Other",
+		"Str",
+		"j",
+		"jname",
+		"t",
+		"y"
+	],
+	"type": "object"
+}

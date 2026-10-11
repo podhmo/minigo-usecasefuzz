@@ -1,0 +1,6 @@
+runtime trap: resolve dir "./nonexistent": entry "./nonexistent" not found: stat MINIGO-usecasefuzz/extract-schema/cases/p06-plugin-baddir/nonexistent: no such file or directory
+Traceback (most recent call first):
+File "MINIGO-usecasefuzz/extract-schema/cases/p06-plugin-baddir/script/main.go", line 142, in generator.loadPlugins()
+		pp := inspect.DirOf(dir)
+File "MINIGO-usecasefuzz/extract-schema/cases/p06-plugin-baddir/script/main.go", line 48, in Main()
+		if err := g.loadPlugins(pluginDirs); err != nil {

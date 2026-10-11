@@ -1,0 +1,5 @@
+cases/*/go.mod
+cases/*/go.sum
+cases/*/script
+out/extract-schema
+out/extract-schema.exe

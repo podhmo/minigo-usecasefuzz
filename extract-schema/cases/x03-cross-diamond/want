@@ -1,0 +1,55 @@
+{
+	"$defs": {
+		"Arm": {
+			"additionalProperties": true,
+			"properties": {
+				"b": {
+					"$ref": "#/$defs/Atom"
+				}
+			},
+			"required": [
+				"b"
+			],
+			"type": "object"
+		},
+		"Arm_right": {
+			"additionalProperties": true,
+			"properties": {
+				"b": {
+					"$ref": "#/$defs/Atom"
+				}
+			},
+			"required": [
+				"b"
+			],
+			"type": "object"
+		},
+		"Atom": {
+			"additionalProperties": true,
+			"properties": {
+				"n": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"n"
+			],
+			"type": "object"
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"l": {
+			"$ref": "#/$defs/Arm"
+		},
+		"r": {
+			"$ref": "#/$defs/Arm_right"
+		}
+	},
+	"required": [
+		"l",
+		"r"
+	],
+	"type": "object"
+}

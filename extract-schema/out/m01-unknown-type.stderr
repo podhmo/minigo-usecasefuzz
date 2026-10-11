@@ -1,0 +1,4 @@
+runtime trap: inspect.Symbol: no Nope in example.com/m
+Traceback (most recent call first):
+File "MINIGO-usecasefuzz/extract-schema/cases/m01-unknown-type/script/main.go", line 54, in Main()
+		d := inspect.Symbol(pkg, typeName)

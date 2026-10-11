@@ -1,0 +1,63 @@
+{
+	"$defs": {
+		"A": {
+			"$ref": "#/$defs/B"
+		},
+		"B": {
+			"$ref": "#/$defs/C"
+		},
+		"C": {
+			"type": "integer"
+		},
+		"M": {
+			"additionalProperties": {
+				"type": "integer"
+			},
+			"type": "object"
+		},
+		"S": {
+			"items": {
+				"type": "string"
+			},
+			"type": "array"
+		},
+		"U2": {
+			"$ref": "#/$defs/User"
+		},
+		"User": {
+			"additionalProperties": true,
+			"properties": {
+				"id": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"id"
+			],
+			"type": "object"
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"a": {
+			"$ref": "#/$defs/A"
+		},
+		"m": {
+			"$ref": "#/$defs/M"
+		},
+		"s": {
+			"$ref": "#/$defs/S"
+		},
+		"u2": {
+			"$ref": "#/$defs/U2"
+		}
+	},
+	"required": [
+		"a",
+		"m",
+		"s",
+		"u2"
+	],
+	"type": "object"
+}

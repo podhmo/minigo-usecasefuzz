@@ -1,0 +1,76 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"l1": {
+			"additionalProperties": true,
+			"properties": {
+				"l2": {
+					"additionalProperties": true,
+					"properties": {
+						"v": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"v"
+					],
+					"type": "object"
+				}
+			},
+			"required": [
+				"l2"
+			],
+			"type": "object"
+		},
+		"list": {
+			"items": {
+				"additionalProperties": true,
+				"properties": {
+					"k": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"k"
+				],
+				"type": "object"
+			},
+			"type": "array"
+		},
+		"pair": {
+			"additionalProperties": true,
+			"properties": {
+				"A": {
+					"type": "integer"
+				},
+				"B": {
+					"type": "integer"
+				}
+			},
+			"type": "object"
+		},
+		"table": {
+			"additionalProperties": {
+				"additionalProperties": true,
+				"properties": {
+					"n": {
+						"type": "integer"
+					}
+				},
+				"required": [
+					"n"
+				],
+				"type": "object"
+			},
+			"type": "object"
+		}
+	},
+	"required": [
+		"l1",
+		"list",
+		"pair",
+		"table"
+	],
+	"type": "object"
+}

@@ -1,0 +1,57 @@
+{
+	"$defs": {
+		"Age": {
+			"type": "integer"
+		},
+		"Bytes": {
+			"items": {
+				"minimum": 0,
+				"type": "integer"
+			},
+			"type": "array"
+		},
+		"Celsius": {
+			"type": "number"
+		},
+		"Flag": {
+			"type": "boolean"
+		},
+		"Name": {
+			"type": "string"
+		},
+		"Score": {
+			"type": "number"
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"a": {
+			"$ref": "#/$defs/Age"
+		},
+		"b": {
+			"$ref": "#/$defs/Bytes"
+		},
+		"c": {
+			"$ref": "#/$defs/Celsius"
+		},
+		"f": {
+			"$ref": "#/$defs/Flag"
+		},
+		"n": {
+			"$ref": "#/$defs/Name"
+		},
+		"s": {
+			"$ref": "#/$defs/Score"
+		}
+	},
+	"required": [
+		"a",
+		"b",
+		"c",
+		"f",
+		"n",
+		"s"
+	],
+	"type": "object"
+}

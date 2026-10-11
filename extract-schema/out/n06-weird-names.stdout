@@ -1,0 +1,24 @@
+{
+	"$defs": {
+		"string": {
+			"additionalProperties": true,
+			"description": "shadowing a builtin name is legal inside a package",
+			"properties": {
+				"v": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"v"
+			],
+			"type": "object"
+		},
+		"Δelta": {
+			"additionalProperties": true,
+			"description": "a non-ASCII uppercase name: exported by Go's rule",
+			"properties": {},
+			"type": "object"
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#"
+}

@@ -1,0 +1,4 @@
+runtime trap: resolve dir "./nonexistent": entry "./nonexistent" not found: stat MINIGO-usecasefuzz/extract-schema/cases/m08-bad-target/nonexistent: no such file or directory
+Traceback (most recent call first):
+File "MINIGO-usecasefuzz/extract-schema/cases/m08-bad-target/script/main.go", line 31, in Main()
+		pkg := inspect.DirOf(target)

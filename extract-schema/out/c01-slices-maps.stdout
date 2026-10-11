@@ -1,0 +1,95 @@
+{
+	"$defs": {
+		"Leaf": {
+			"additionalProperties": true,
+			"properties": {
+				"id": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"id"
+			],
+			"type": "object"
+		},
+		"Val": {
+			"additionalProperties": true,
+			"properties": {
+				"v": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"v"
+			],
+			"type": "object"
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"any": {
+			"additionalProperties": {
+				"additionalProperties": true,
+				"description": "any (interface{})",
+				"type": "object"
+			},
+			"type": "object"
+		},
+		"by_int": {
+			"additionalProperties": {
+				"type": "string"
+			},
+			"type": "object"
+		},
+		"by_name": {
+			"additionalProperties": {
+				"type": "integer"
+			},
+			"type": "object"
+		},
+		"by_named": {
+			"additionalProperties": {
+				"$ref": "#/$defs/Val"
+			},
+			"type": "object"
+		},
+		"ints": {
+			"items": {
+				"type": "integer"
+			},
+			"type": "array"
+		},
+		"matrix": {
+			"items": {
+				"items": {
+					"type": "string"
+				},
+				"type": "array"
+			},
+			"type": "array"
+		},
+		"nested": {
+			"items": {
+				"additionalProperties": {
+					"items": {
+						"$ref": "#/$defs/Leaf"
+					},
+					"type": "array"
+				},
+				"type": "object"
+			},
+			"type": "array"
+		}
+	},
+	"required": [
+		"any",
+		"by_int",
+		"by_name",
+		"by_named",
+		"ints",
+		"matrix",
+		"nested"
+	],
+	"type": "object"
+}

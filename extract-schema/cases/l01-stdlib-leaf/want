@@ -1,0 +1,33 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"properties": {
+		"at": {
+			"description": "stdlib type time.Time (walk stopped)"
+		},
+		"big": {
+			"description": "stdlib type math/big.Int (walk stopped)"
+		},
+		"for": {
+			"description": "stdlib type time.Duration (walk stopped)"
+		},
+		"ip": {
+			"description": "stdlib type net.IP (walk stopped)"
+		},
+		"raw": {
+			"description": "stdlib type encoding/json.RawMessage (walk stopped)"
+		},
+		"url": {
+			"description": "stdlib type net/url.URL (walk stopped)"
+		}
+	},
+	"required": [
+		"at",
+		"big",
+		"for",
+		"ip",
+		"raw",
+		"url"
+	],
+	"type": "object"
+}

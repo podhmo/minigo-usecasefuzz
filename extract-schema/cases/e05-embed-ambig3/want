@@ -1,0 +1,14 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"additionalProperties": true,
+	"description": "Top adds an explicit V at depth 0: the shallow field wins over the\ndepth-1 ambiguity.",
+	"properties": {
+		"v": {
+			"type": "boolean"
+		}
+	},
+	"required": [
+		"v"
+	],
+	"type": "object"
+}
