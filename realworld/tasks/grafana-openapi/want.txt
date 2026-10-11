@@ -1,0 +1,25 @@
+package pkg/api: state=indexed
+annotations: doc=117 free=4
+routes=264 api=162 documented=98 undocumented=64 swagger-only=23
+  missing: ANY /datasources/proxy/uid/{}  ProxyDataSourceRequestWithUID
+  missing: ANY /datasources/proxy/uid/{}/*  ProxyDataSourceRequestWithUID
+  missing: ANY /datasources/proxy/{}  ProxyDataSourceRequest
+  missing: ANY /datasources/proxy/{}/*  ProxyDataSourceRequest
+  missing: ANY /datasources/uid/{}/health  
+  missing: ANY /datasources/uid/{}/resources  
+  missing: ANY /datasources/uid/{}/resources/*  
+  missing: ANY /datasources/{}/health  
+  missing: ANY /datasources/{}/resources  CallDatasourceResource
+  missing: ANY /datasources/{}/resources/*  CallDatasourceResource
+  ...
+  swagger-only: DELETE /datasources/proxy/uid/{}/{}
+  swagger-only: DELETE /folders/{}
+  swagger-only: DELETE /org/invites/{}/revoke
+  swagger-only: DELETE /playlists/{}
+  swagger-only: GET /datasources/proxy/uid/{}/{}
+  swagger-only: GET /datasources/uid/{}/health
+  swagger-only: GET /datasources/uid/{}/resources/{}
+  swagger-only: GET /folders
+  swagger-only: GET /folders/{}
+  swagger-only: GET /folders/{}/counts
+  ...

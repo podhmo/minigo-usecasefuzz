@@ -49,7 +49,7 @@ Verdicts: `PASS`, `DIFF` (silent divergence — a bug), `TRAP`, `REJECT`,
 
 | task | target | reads | checks against |
 |---|---|---|---|
-| grafana-openapi | grafana | route registrations in `pkg/api/api.go` (func bodies) + `// swagger:route` comments, via `go/parser` | each other |
+| grafana-openapi | grafana | route registrations inside `registerRoutes`' body (inspect `Body`/`Nodes`) + `// swagger:route` annotations (117 method docs via `Doc`, 4 free via `Comments`), via `inspect` only | each other |
 | grafana-coreplugin | grafana | `coreplugin` plugin-ID consts, via `go/parser` (no package init) | `public/app/plugins/datasource/*/plugin.json` |
 | clickhouse-settings | clickhouse-datasource | `Settings` struct json tags, via `inspect` (surface only) | `CHConfig` in `src/types/config.ts` |
 | oapi-codegen-examples | oapi-codegen | every `go:generate` line in `examples/` (53), running `cmd/oapi-codegen` itself under minigo (`--src text/template,encoding/json,…`) via `task.sh` | the natively built `cmd/oapi-codegen` (rc + sha256 of every written file) |
