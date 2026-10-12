@@ -11,6 +11,10 @@
 set -u
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 MINIGO_DIR="${MINIGO_DIR:-$ROOT/../../minigo}"
+# Canonicalize: ".." segments in a replace path break go.mod tidy's
+# nested-module boundary check (the root module dir then also claims
+# .../convert-define/define -> ambiguous import).
+[ -d "$MINIGO_DIR" ] && MINIGO_DIR="$(cd "$MINIGO_DIR" && pwd)"
 REPO_DIR="$MINIGO_DIR"
 GEN_DIR="$MINIGO_DIR/examples/convert-define"
 
