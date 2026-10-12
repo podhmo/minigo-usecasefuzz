@@ -55,6 +55,7 @@ bug: e.g. `int`→`string` leaf mismatch stays a compile error by design
 | check01-compute-expr | `c.Compute(dst.V, src.V+"!")` string into int — pinned BUILD-FAIL: arbitrary expressions are not typed at generation; `-check` traces it to `convertAToB, field V` |
 | check02-iface | `int` → `fmt.Stringer` — pinned BUILD-FAIL: needs method sets; `-check` territory |
 | check03-named-slice | `IDs []int` → `Names []string` — pinned BUILD-FAIL: named composites are cast, not converted element-wise (knowable without a type checker; see minigo TODO.md) |
+| check04-generic-instantiation | `type SrcList List[int]` → `DstList List[int64]` plus a written `List[int]` field — OK: the spec `[]T` is instantiated with the written type arguments and converted element-wise |
 | broken-src | type error in a source-pkg func body — generation succeeds (AST only, no typecheck); BUILD-FAIL is the broken input package itself |
 | broken-field | field of unresolved type `Ghost` — generation still succeeds (leaf cast `int64(src.V)` emitted); BUILD-FAIL is the broken input package itself |
 | broken-dsl | DSL file that never compiles (unused import, `ghost()`, `var x int = "no"` in the func lit) — OK: minigo runs it, output is clean |
