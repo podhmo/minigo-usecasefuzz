@@ -70,7 +70,7 @@ from the findings live in podhmo/minigo `TODO.md`, not here.
 | m02-nontype-name | func name as type → graceful error | FAIL |
 | m03-multifile | multi-file pkg, `_test.go` excluded | OK |
 | m04-pkg-mode | `-pkg example.com/m` | OK |
-| m05-pkg-stdlib | `-pkg time` → graceful FAIL (bound pkg has no source index — minigo TODO.md) | FAIL |
+| m05-pkg-stdlib | `-pkg time` → bound shadow retries source (`inspect.LookupSourceOf`), `Time` → unexported-only object | OK |
 | m06-title-desc | `-title`/`-desc` flags | OK |
 | m07-loose-false | `-loose=false` | OK |
 | m08-bad-target | nonexistent dir → graceful error | FAIL |
