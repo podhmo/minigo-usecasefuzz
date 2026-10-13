@@ -27,12 +27,15 @@ Findings from the round (20+ bugs, all fixed):
 
 `neg-*` dirs hold programs Go rejects at compile time (the expected
 verdict is PASS-REJECT — a runtime trap is the nearest loud failure).
-`lim-*` dirs probe designed limitations that are *intended* to trap:
-`lim-complex` (complex numbers), `lim-threeidx` (`s[a:b:c]`),
+`lim-*` dirs probe designed limitations that used to trap — all pass
+now: `lim-complex` (complex numbers), `lim-threeidx` (`s[a:b:c]`),
 `lim-bigconst` (`1<<100` arbitrary-precision consts), `lim-uintptr`.
 
-Latest run (2026-10-02, minigo main + podhmo/minigo#45): **35 PASS /
-4 PASS-REJECT / 0 DIFF / 3 TRAP-by-design**.
+Latest run (2026-10-12, minigo main @7477727): **36 PASS / 1 DIFF /
+1 TRAP / 4 PASS-REJECT** — `convs` and `arith` diverge on a
+const-domain regression introduced by podhmo/minigo#635
+(`float64(7)/2` gives 3; `1 << n` with a var count traps overflow),
+pinned in podhmo/minigo `TODO.md`.
 
 ## Usage
 
