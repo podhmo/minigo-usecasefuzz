@@ -17,17 +17,19 @@
 `lim-*` cases are deliberate limitation probes: they use packages that are
 not bound into the interpreter and document how the failure presents.
 
-Latest run (2026-10-03): **42 PASS / 0 DIFF / 1 ACCEPT / 1 REJECT / 2 TRAP** — after
-the minigo reflect-facade fix stack (podhmo/minigo Stack #168), `lim-yaml`
-passes end-to-end: `gopkg.in/yaml.v3`'s reflect-driven decode runs through
-the `minireflect` facade. `lim-toml` passes after swapping pelletier/go-toml
-for `github.com/BurntSushi/toml` — pelletier's `internal/danger` reinterprets
-`reflect.SliceHeader` via `unsafe.Pointer`, which minigo cannot model
-(policy: prefer deps that avoid unsafe/cgo). `lim-xml` progressed past
-`encoding/xml` init and `rawToken` into the reflect-driven decoder and now
-traps on `reflect.TypeAssert[T]` (explicit type args on a bound builtin —
-not yet supported), and `lim-http` traps on module resolution (`net/http`
-imports `golang.org/x/net/http/httpguts`, outside the module graph).
+Latest run (2026-10-12): **44 PASS / 1 DIFF / 1 ACCEPT / 0 REJECT / 0 TRAP** —
+every `lim-*` probe that used to trap now runs to completion. `lim-xml`
+passes since `reflect.TypeAssert[T]` (explicit type args on a bound
+builtin) works, and `lim-http` passes now that `golang.org/x/net/...`
+imports resolve inside the module graph. `lim-yaml` and `lim-toml` keep
+passing — `lim-toml` uses `github.com/BurntSushi/toml` since pelletier's
+`internal/danger` reinterprets `reflect.SliceHeader` via
+`unsafe.Pointer` (policy: prefer deps that avoid unsafe/cgo; minigo has
+`unsafe.Pointer` now but not `uintptr`-minted reinterpretation).
+`lim-cgo` graduated from REJECT to DIFF: the `import "C"` files are
+skipped so the program runs, but the `sqlite3` driver never registers
+and `sql.Open` reports "unknown driver" — a graceful runtime failure
+instead of a load-time refusal.
 The one ACCEPT is `inspectuse`: intentional, since
 `minigo.dev/inspect` exists only inside the interpreter and `go run`
 cannot compile it.
@@ -74,13 +76,13 @@ cannot compile it.
 | lim-template | text/template rendering (probe) | text/template |
 | lim-http | HTTP request building (probe) | net/http |
 | lim-yaml | external module dependency (probe) | gopkg.in/yaml.v3 via go.mod |
-| lim-xml | stdlib XML decode (probe) | encoding/xml — reflect init boundary |
+| lim-xml | stdlib XML decode (probe) | encoding/xml — reflect.TypeAssert decode |
 | lim-toml | external TOML decode (probe) | github.com/BurntSushi/toml |
 | lim-bufio | line scanning (probe) | bufio.Scanner |
 | lim-sha | SHA-256 checksum (probe) | crypto/sha256 |
 | lim-csv | CSV reading (probe) | encoding/csv |
 | lim-io | io.ReadAll (probe) | io |
-| lim-cgo | cgo-dependent driver (probe) | github.com/mattn/go-sqlite3 — REJECT: `import "C"` refused at load |
+| lim-cgo | cgo-dependent driver (probe) | github.com/mattn/go-sqlite3 — DIFF: runs, but the cgo driver never registers (`sql: unknown driver`) |
 
 ## Usage
 
