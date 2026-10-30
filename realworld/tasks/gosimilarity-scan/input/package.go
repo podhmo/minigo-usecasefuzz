@@ -1,0 +1,722 @@
+package runtime
+
+import (
+	"fmt"
+	"go/ast"
+	"go/token"
+	"reflect"
+	"slices"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+
+	"github.com/podhmo/minigo/bytecode"
+	"github.com/podhmo/minigo/index"
+	"github.com/podhmo/minigo/syntax"
+)
+
+// State is a [Package]'s stage in loading, reported by [Package.State].
+// A package moves forward through the stages in order; [Failed] means
+// its initialization failed.
+type State int
+
+const (
+	Unseen State = iota
+	Located
+	Parsed
+	Indexed
+	Initializing
+	Ready
+	Failed
+)
+
+// Env maps names to values: a package's globals ([Package.Globals]) or
+// the predeclared builtins. It is safe for concurrent use, as script
+// goroutines read and write the same globals.
+type Env struct {
+	mu sync.RWMutex
+	m  map[string]Value
+	// gen bumps on every binding change (and on Touch): the VM's
+	// per-site global caches stay valid only while it is unchanged.
+	gen atomic.Uint64
+}
+
+// NewEnv creates an empty Env.
+func NewEnv() *Env { return &Env{m: map[string]Value{}} }
+
+// Get returns the value bound to name; ok is false when name is unbound.
+func (e *Env) Get(name string) (Value, bool) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	v, ok := e.m[name]
+	return v, ok
+}
+
+// Set binds name to v.
+func (e *Env) Set(name string, v Value) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.m[name] = v
+	e.gen.Add(1)
+}
+
+// Delete removes the binding for name, if present.
+func (e *Env) Delete(name string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	delete(e.m, name)
+	e.gen.Add(1)
+}
+
+// Gen reports the binding generation: it changes whenever a binding is
+// set or deleted, or [Env.Touch] is called. Caches keyed on the env stay
+// valid while it is unchanged.
+func (e *Env) Gen() uint64 { return e.gen.Load() }
+
+// Touch invalidates caches keyed on [Env.Gen] without changing a binding.
+// Call it after changing what names resolve to around the env, such as a
+// package's file scopes, imports or index.
+func (e *Env) Touch() { e.gen.Add(1) }
+
+// Names lists the bound names in no particular order.
+func (e *Env) Names() []string {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	out := make([]string, 0, len(e.m))
+	for k := range e.m {
+		out = append(out, k)
+	}
+	return out
+}
+
+// ImportRef is one import declaration of a source file. The imported
+// package is loaded lazily: [ImportRef.Materialize] loads it up to [Indexed] without
+// initializing it, and it is initialized when a script first uses one of
+// its members.
+type ImportRef struct {
+	Path  string
+	Alias string // "", "_", ".", or an identifier
+
+	// AllNames bypasses the exported-name gate on member selection — the
+	// REPL's :cd uses it so a pseudo dot-import can see unexported decls.
+	AllNames bool
+
+	// Load materializes the package to Indexed state (injected by loader).
+	Load func(path string) (*Package, error)
+
+	// LocateName reports the name in the imported package's package
+	// clause without parsing or indexing the package (injected by
+	// loader). nil leaves [ImportRef.PackageName] to the path-tail guess.
+	LocateName func(path string) (string, error)
+
+	once sync.Once
+	pkg  *Package
+	err  error
+
+	nameOnce sync.Once
+	name     string
+}
+
+// PackageName returns the name the imported package declares in its
+// package clause — the name an unaliased import binds, which may differ
+// from the path's last element (gopkg.in/yaml.v3 declares yaml). It asks
+// LocateName once and caches the answer; it never materializes the
+// package. When the package cannot be located it falls back to the
+// path-tail guess of [syntax.Import.LocalName]. The alias is ignored.
+func (r *ImportRef) PackageName() string {
+	r.nameOnce.Do(func() {
+		if r.LocateName != nil {
+			if n, err := r.LocateName(r.Path); err == nil && n != "" {
+				r.name = n
+				return
+			}
+		}
+		r.name = (&syntax.Import{Path: r.Path}).LocalName()
+	})
+	return r.name
+}
+
+// Materialize loads the imported package up to [Indexed] (parsed and
+// indexed, not initialized) through Load. Only the first call loads; later
+// calls return the same result.
+func (r *ImportRef) Materialize() (*Package, error) {
+	r.once.Do(func() {
+		defer func() {
+			// a panic inside Load still consumes the once — record it as an
+			// error so later calls report the failure instead of (nil, nil).
+			if pr := recover(); pr != nil {
+				r.pkg, r.err = nil, fmt.Errorf("import %s: %v", r.Path, pr)
+				panic(pr)
+			}
+		}()
+		if r.Load == nil {
+			r.err = fmt.Errorf("no loader for import %q", r.Path)
+			return
+		}
+		r.pkg, r.err = r.Load(r.Path)
+	})
+	return r.pkg, r.err
+}
+
+// Package is a script package, loaded lazily: it is located and indexed
+// when first imported, and initialized ([Package.EnsureReady]) when a
+// member is first used. A bound host package is created already [Ready]
+// with its members in Globals.
+type Package struct {
+	Path     string
+	Name     string
+	Dir      string
+	Standard bool // inside GOROOT (or a bound stdlib stub)
+
+	Fset  *token.FileSet
+	Files []*syntax.File
+	Index *index.Index
+
+	Globals *Env // values populated at Initialize / on member access
+
+	// HostVars pins package-level vars of a source-built package to host
+	// values: the initializer binds the host value instead of evaluating
+	// the declared expression. Sentinels like io/fs's ErrNotExist and
+	// SkipDir must be the very objects host-bound packages (os,
+	// path/filepath) return and compare against. Set by the engine.
+	HostVars map[string]Value
+
+	// Scopes maps each parsed file's named import refs by local name.
+	Scopes map[*syntax.File]map[string]*ImportRef
+	// Imports retains every import in source order, including dot and blank imports.
+	Imports map[*syntax.File][]*ImportRef
+
+	// FileByName maps an absolute source path to its file — used to recover
+	// per-declaration file context from instruction positions (the synthetic
+	// __init__ chunk mixes decls from several files).
+	FileByName map[string]*syntax.File
+
+	state atomic.Int32 // a State value — member access can come from any goroutine
+	// indexed closes when the package finishes indexing (success or
+	// failure): a goroutine racing a cold load waits for it instead of
+	// seeing a half-indexed package. Nil on bound host packages, which
+	// are born Ready.
+	indexed chan struct{}
+
+	initOnce sync.Once
+	initErr  error
+	// Bootstrap builds and runs the package initializer (var/const decls +
+	// init() funcs). Injected by the engine; called exactly once. The run
+	// argument executes the __init__ function — supplied by the triggering
+	// caller so a spawned goroutine's init runs on ITS VM.
+	Bootstrap func(p *Package, run func(*Function) error) error
+
+	constOnce sync.Once
+	constErr  error
+	// ConstBootstrap builds and runs the const-only initializer (const
+	// decls, no var specs, no init() funcs) — injected by the engine.
+	// A constant binds without the package's side effects; a failure or
+	// a nil hook only means callers fall back to the full Bootstrap.
+	ConstBootstrap func(p *Package, run func(*Function) error) error
+
+	// RunInit is the default runner used when EnsureReady fires with no
+	// explicit VM (host-side callers): the engine installs a fresh-VM
+	// runner so init never shares the caller's interpreter state.
+	RunInit func(*Function) error
+
+	// LazyInit answers type/signature queries (functions and type decls)
+	// without running initializers — set by the engine's InitMode.
+	LazyInit bool
+
+	// Specials is the engine's special-form registry (canonical symbol ->
+	// handler); the compiler emits OpSpecialCall for calls to these
+	// symbols.
+	Specials map[SymbolID]SpecialFunc
+
+	matMu sync.Mutex
+	matM  map[*index.Decl]Value // materialization dedup: one TypeDef/Function identity per decl
+
+	instMu    sync.Mutex
+	instM     map[string]instChunk // compiled generic instantiations (InstChunk)
+	instCount map[*ast.FuncDecl]int
+
+	inferMu    sync.Mutex
+	inferM     map[string]inferEntry // inferred generic instances (Inferred)
+	inferCount map[*ast.FuncDecl]int
+}
+
+// State reports the package's loading stage.
+func (p *Package) State() State { return State(p.state.Load()) }
+
+// SetState records the package's loading stage. It is for loaders;
+// [Package.EnsureReady] advances the stage itself.
+func (p *Package) SetState(s State) { p.state.Store(int32(s)) }
+
+// MarkIndexed declares that the package is still being indexed: until
+// [Package.FinishIndexing], member lookups from other goroutines wait.
+// Loaders call it when they create the package.
+func (p *Package) MarkIndexed() {
+	if p.indexed == nil {
+		p.indexed = make(chan struct{})
+	}
+}
+
+// FinishIndexing releases the lookups held since [Package.MarkIndexed],
+// whether indexing succeeded or failed.
+func (p *Package) FinishIndexing() {
+	if p.indexed != nil {
+		close(p.indexed)
+	}
+}
+
+// WaitIndexed blocks until the package has finished indexing (see
+// [Package.MarkIndexed]); afterwards Index and the import scopes are
+// safe to read from any goroutine.
+func (p *Package) WaitIndexed() {
+	if p.indexed != nil {
+		<-p.indexed
+	}
+}
+
+// MatCache returns the value built for decl d, calling build when there
+// is none yet, so every caller gets the same *TypeDef or *Function for a
+// declaration (type identity depends on it). Concurrent callers may both
+// run build, but all of them get the first stored result. A failed or nil
+// build is not stored.
+func (p *Package) MatCache(d *index.Decl, build func(*Package, *index.Decl) (Value, error)) (Value, error) {
+	// build runs outside the lock: it may resolve other decls, which
+	// would deadlock on a held lock.
+	p.matMu.Lock()
+	v, ok := p.matM[d]
+	p.matMu.Unlock()
+	if ok {
+		return v, nil
+	}
+	v, err := build(p, d)
+	if err != nil || v == nil {
+		return v, err
+	}
+	p.matMu.Lock()
+	defer p.matMu.Unlock()
+	if p.matM == nil {
+		p.matM = map[*index.Decl]Value{}
+	}
+	if prev, ok := p.matM[d]; ok {
+		return prev, nil
+	}
+	p.matM[d] = v
+	return v, nil
+}
+
+// EnsureReady initializes the package — its var declarations and init
+// functions — if it is not [Ready] yet, and returns the initialization
+// error. Initialization runs at most once; a failure leaves the package
+// [Failed] and is returned again by later calls. It runs on a fresh
+// interpreter through RunInit; see [Package.EnsureReadyRun].
+func (p *Package) EnsureReady() error {
+	return p.EnsureReadyRun(nil)
+}
+
+// EnsureReadyRun is [Package.EnsureReady] with an explicit runner: run
+// executes the package initializer, so code already running on an
+// interpreter initializes the package on that same interpreter. A nil run
+// falls back to RunInit.
+func (p *Package) EnsureReadyRun(run func(*Function) error) error {
+	p.initOnce.Do(func() {
+		if p.State() == Ready {
+			return
+		}
+		p.SetState(Initializing)
+		if err := p.runBootstrap(run); err != nil {
+			p.initErr = err
+			p.SetState(Failed)
+			return
+		}
+		p.SetState(Ready)
+	})
+	return p.initErr
+}
+
+// runBootstrap invokes p.Bootstrap, converting a panic into initErr (and
+// Failed state) before re-panicking: sync.Once consumes a panicked Do as
+// done, so without recording it later callers would see a successful-but-
+// partial init.
+func (p *Package) runBootstrap(run func(*Function) error) (err error) {
+	if p.Bootstrap == nil {
+		return nil
+	}
+	if run == nil {
+		run = p.RunInit
+	}
+	if run == nil {
+		return fmt.Errorf("package %s: no init runner", p.Name)
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			if e, ok := r.(error); ok {
+				err = e
+			} else {
+				err = fmt.Errorf("panic: %v", r)
+			}
+			// the re-panic still consumes initOnce — without recording the
+			// failure here the package would stay Initializing forever and
+			// later member access would silently see partial state.
+			p.initErr = err
+			p.SetState(Failed)
+			panic(r)
+		}
+	}()
+	return p.Bootstrap(p, run)
+}
+
+// Member returns the package member name, initializing the package
+// first when the member needs it. Declared functions and types are built
+// by materialize, which the engine provides. It reports an error when the
+// package failed to initialize or has no such member. Code running on an
+// interpreter uses [Package.MemberV] instead.
+func (p *Package) Member(name string, materialize func(*Package, *index.Decl) (Value, error)) (Value, error) {
+	return p.MemberV(name, materialize, nil)
+}
+
+// EnsureConstsRun binds the package's constants through ConstBootstrap,
+// without running var initializers or init functions. It runs at most
+// once and does nothing for a package already [Ready]. An error (also
+// from a panic) only means the constants are not bound; the caller can
+// fall back to [Package.EnsureReadyRun].
+func (p *Package) EnsureConstsRun(run func(*Function) error) error {
+	p.constOnce.Do(func() {
+		if p.State() == Ready || p.ConstBootstrap == nil {
+			return
+		}
+		defer func() {
+			if r := recover(); r != nil {
+				if e, ok := r.(error); ok {
+					p.constErr = e
+				} else {
+					p.constErr = fmt.Errorf("panic: %v", r)
+				}
+			}
+		}()
+		if run == nil {
+			run = p.RunInit
+		}
+		if run == nil {
+			p.constErr = fmt.Errorf("package %s: no init runner", p.Name)
+			return
+		}
+		p.constErr = p.ConstBootstrap(p, run)
+	})
+	return p.constErr
+}
+
+// MemberV is [Package.Member] with an explicit init runner (see
+// [Package.EnsureReadyRun]). With a non-nil run, using a var or const
+// member initializes the package fully first, as Go guarantees.
+func (p *Package) MemberV(name string, materialize func(*Package, *index.Decl) (Value, error), run func(*Function) error) (Value, error) {
+	p.WaitIndexed()
+	// A failed initialization must not go unnoticed: globals registered
+	// before the failure are partial state, so surface the error instead.
+	if p.State() == Failed {
+		if err := p.EnsureReadyRun(run); err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("package %s failed to load", p.Name)
+	}
+	if v, ok := p.Globals.Get(name); ok {
+		// A cell bound by the const-only pass reads like an initialized
+		// global, but the package never ran its initializers — serving it
+		// to running VM code would break Go's guarantee that an imported
+		// package is fully initialized before its values serve. In-VM
+		// access to a value member completes the init first; host-side
+		// callers (run == nil) keep the lazy view they asked for. State
+		// must be strictly before Initializing: a package currently
+		// initializing (possibly on this very goroutine, via an init
+		// cycle) keeps serving the in-progress cell rather than
+		// deadlocking on initOnce re-entry.
+		if run != nil && p.Index != nil && p.State() < Initializing {
+			if d, ok := memberDecl(p.Index, name); ok && (d.Kind == index.ConstDecl || d.Kind == index.VarDecl) {
+				if err := p.EnsureReadyRun(run); err != nil {
+					return nil, err
+				}
+				if fresh, ok := p.Globals.Get(name); ok {
+					return fresh, nil
+				}
+			}
+		}
+		return v, nil
+	}
+	if p.Index != nil && p.LazyInit {
+		// functions and type decls are queryable without running
+		// initializers; var/const values require the package to be Ready
+		if d, ok := memberDecl(p.Index, name); ok && (d.Kind == index.FuncDecl || d.Kind == index.TypeDecl) {
+			if materialize == nil {
+				return nil, fmt.Errorf("no materializer for %s.%s", p.Name, name)
+			}
+			return materialize(p, d)
+		}
+	}
+	// constants need no init — a const member binds through the const-only
+	// initializer first. That only holds for host-side lookups (run ==
+	// nil, e.g. inspect.Value): inside running VM code a const member is
+	// also a signal the caller treats the package as live — crypto/tls's
+	// init reads crypto.SHA256 and then calls its .Size(), which touches
+	// crypto's vars — so in-VM member access keeps Go's guarantee that an
+	// imported package is fully initialized.
+	if run == nil && p.Index != nil {
+		if d, ok := memberDecl(p.Index, name); ok && d.Kind == index.ConstDecl {
+			if err := p.EnsureConstsRun(run); err == nil {
+				if v, ok := p.Globals.Get(name); ok {
+					return v, nil
+				}
+			}
+		}
+	}
+	if err := p.EnsureReadyRun(run); err != nil {
+		return nil, err
+	}
+	if v, ok := p.Globals.Get(name); ok {
+		return v, nil
+	}
+	if p.Index != nil {
+		if d, ok := memberDecl(p.Index, name); ok {
+			if materialize == nil {
+				return nil, fmt.Errorf("no materializer for %s.%s", p.Name, name)
+			}
+			return materialize(p, d)
+		}
+	}
+	return nil, fmt.Errorf("undefined: %s.%s", p.Name, name)
+}
+
+func memberDecl(ix *index.Index, name string) (*index.Decl, bool) {
+	if d, ok := ix.Funcs[name]; ok {
+		return d, true
+	}
+	if d, ok := ix.Types[name]; ok && d.Decl != nil {
+		return d.Decl, true
+	}
+	if d, ok := ix.Consts[name]; ok {
+		return d, true
+	}
+	if d, ok := ix.Vars[name]; ok {
+		return d, true
+	}
+	return nil, false
+}
+
+// instChunk is one cached instantiation. It keeps the binds alive, so
+// the addresses its key spells cannot be reused by other type values.
+type instChunk struct {
+	binds map[string]Value
+	ch    *bytecode.Chunk
+}
+
+// maxInstPerDecl bounds the instantiations cached per generic decl:
+// binds rebuilt per call (an anonymous []T inferred from an argument)
+// would otherwise retain a chunk per call.
+const maxInstPerDecl = 64
+
+// InstKey returns the key under which [Package.SetInstChunk] caches the
+// code of a generic instantiation: it identifies the declaration, the
+// function name, and the type bound to each type parameter. ok is false
+// when a bind is not a *TypeDef.
+func InstKey(decl *ast.FuncDecl, file *syntax.File, name string, binds map[string]Value) (string, bool) {
+	var b strings.Builder
+	writePtr(&b, decl)
+	b.WriteByte('|')
+	writePtr(&b, file)
+	b.WriteByte('|')
+	b.WriteString(name)
+	if !writeBindsKey(&b, binds, instKeyDepth) {
+		return "", false
+	}
+	return b.String(), true
+}
+
+// instKeyDepth bounds how deep writeTypeKey follows nested typedefs
+// (Elem, Binds, OuterArgs) before it falls back to the pointer — a
+// recursive type would otherwise never end.
+const instKeyDepth = 4
+
+func writeBindsKey(b *strings.Builder, binds map[string]Value, depth int) bool {
+	names := make([]string, 0, len(binds))
+	for k := range binds {
+		names = append(names, k)
+	}
+	slices.Sort(names)
+	for _, n := range names {
+		b.WriteByte('|')
+		b.WriteString(n)
+		b.WriteByte('=')
+		td, ok := binds[n].(*TypeDef)
+		if !ok || td == nil {
+			return false
+		}
+		writeTypeKey(b, td, depth)
+	}
+	return true
+}
+
+// writeTypeKey spells a typedef by what determines it rather than by its
+// pointer: call-site inference and re-specialization mint fresh copies
+// of one type (a `stringSlice` with the same Spec and Anon, an `[]int`
+// from the same type expression), and pointer keys would compile each
+// copy again. The spelled parts are the syntax nodes and package/file
+// the type resolves in, its name and kind, its local-type scope and
+// identity counters, and — recursively — its binds, element and
+// display context. Everything else (fields, methods, embeds, caches) is
+// derived from those. A bare predeclared basic typedef spells its name
+// alone; a host-backed typedef, whose constructor cannot be compared,
+// spells its pointer.
+func writeTypeKey(b *strings.Builder, td *TypeDef, depth int) {
+	if plainBasic(td) {
+		b.WriteString(td.Name)
+		return
+	}
+	if depth == 0 || td.HostNew != nil || td.HostScalar != nil {
+		b.WriteByte('@')
+		writePtr(b, td)
+		return
+	}
+	b.WriteByte('{')
+	writePtr(b, td.Pkg)
+	b.WriteByte(',')
+	writePtr(b, td.File)
+	b.WriteByte(',')
+	writePtr(b, td.Spec)
+	b.WriteByte(',')
+	if td.Anon != nil {
+		writePtr(b, td.Anon)
+	}
+	b.WriteByte(',')
+	b.WriteString(td.Name)
+	b.WriteByte(',')
+	b.WriteString(strconv.Itoa(int(td.Kind)))
+	b.WriteByte(',')
+	writePtr(b, td.LocalTypes)
+	b.WriteByte(',')
+	b.WriteString(strconv.Itoa(td.Gen))
+	if td.Local {
+		b.WriteString(",local")
+	}
+	if td.inInstArgs {
+		b.WriteString(",instargs")
+	}
+	if td.Elem != nil {
+		b.WriteString(",elem:")
+		writeTypeKey(b, td.Elem, depth-1)
+	}
+	if len(td.Binds) > 0 && !writeBindsKey(b, td.Binds, depth-1) {
+		// a non-typedef bind: fall back to this typedef's identity
+		b.WriteString(",@")
+		writePtr(b, td)
+	}
+	for _, list := range [][]Value{td.OuterArgs, td.OuterSpell} {
+		b.WriteString(",[")
+		for _, v := range list {
+			if a, ok := v.(*TypeDef); ok && a != nil {
+				writeTypeKey(b, a, depth-1)
+			} else {
+				fmt.Fprintf(b, "%T:%v", v, v)
+			}
+			b.WriteByte(';')
+		}
+		b.WriteByte(']')
+	}
+	b.WriteByte('}')
+}
+
+// AppendTypeKey writes to b a key for td, as [InstKey] does for each
+// bind, for callers keying their own caches on types. Distinct copies of
+// one typedef produce the same key, except for bound host types.
+func AppendTypeKey(b *strings.Builder, td *TypeDef) {
+	writeTypeKey(b, td, instKeyDepth)
+}
+
+// inferEntry is one cached inference result. keep holds what the key's
+// addresses point into (the argument typedefs), so they stay unique.
+type inferEntry struct {
+	keep []any
+	fn   *Function
+}
+
+// maxInferPerDecl bounds the cached inference results per generic decl.
+const maxInferPerDecl = 256
+
+// Inferred returns the instance of a generic function that
+// [Package.SetInferred] recorded under key.
+func (p *Package) Inferred(key string) (*Function, bool) {
+	p.inferMu.Lock()
+	defer p.inferMu.Unlock()
+	e, ok := p.inferM[key]
+	return e.fn, ok
+}
+
+// SetInferred records fn, an instance of the generic function decl
+// inferred from argument types, under key. keep must hold everything the
+// key's addresses point into, so they are not reused. Only a bounded
+// number of instances is kept per decl; the rest are silently dropped.
+func (p *Package) SetInferred(key string, decl *ast.FuncDecl, keep []any, fn *Function) {
+	p.inferMu.Lock()
+	defer p.inferMu.Unlock()
+	if p.inferM == nil {
+		p.inferM = map[string]inferEntry{}
+		p.inferCount = map[*ast.FuncDecl]int{}
+	}
+	if _, ok := p.inferM[key]; ok || p.inferCount[decl] >= maxInferPerDecl {
+		return
+	}
+	p.inferCount[decl]++
+	p.inferM[key] = inferEntry{keep: keep, fn: fn}
+}
+
+// writePtr spells a pointer-shaped value's address (0 for nil).
+func writePtr(b *strings.Builder, x any) {
+	var p uintptr
+	if rv := reflect.ValueOf(x); rv.IsValid() {
+		switch rv.Kind() {
+		case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan, reflect.UnsafePointer:
+			p = rv.Pointer()
+		}
+	}
+	b.WriteString(strconv.FormatUint(uint64(p), 16))
+}
+
+// plainBasic reports whether td is a bare predeclared basic typedef
+// (`string`, `int`) carrying nothing but its name and kind. OuterSpell
+// is ignored: it only spells function-local type names a typedef's AST
+// embeds, and a basic typedef has no AST.
+func plainBasic(td *TypeDef) bool {
+	canon := BasicTypedef(td.Name)
+	if canon == nil || td.Kind != canon.Kind {
+		return false
+	}
+	return td.Pkg == nil && td.File == nil && td.Spec == nil && td.Anon == nil &&
+		td.Fields == nil && td.FTags == nil && td.Methods == nil &&
+		td.TParams == nil && td.Binds == nil && td.OuterArgs == nil &&
+		td.MReqs == nil && td.IEmbeds == nil && td.EmbedSpecs == nil &&
+		td.Embeds == nil && td.LocalTypes == nil && td.Elem == nil &&
+		td.HostNew == nil && td.HostScalar == nil && !td.Local && td.Gen == 0
+}
+
+// InstChunk returns the code compiled earlier for the instantiation key
+// from [InstKey]. Instances with the same key can share it.
+func (p *Package) InstChunk(key string) (*bytecode.Chunk, bool) {
+	p.instMu.Lock()
+	defer p.instMu.Unlock()
+	e, ok := p.instM[key]
+	return e.ch, ok
+}
+
+// SetInstChunk records the compiled code of an instantiation under key.
+// Only a bounded number of instantiations is kept per decl; the rest are
+// silently dropped.
+func (p *Package) SetInstChunk(key string, decl *ast.FuncDecl, binds map[string]Value, ch *bytecode.Chunk) {
+	p.instMu.Lock()
+	defer p.instMu.Unlock()
+	if p.instM == nil {
+		p.instM = map[string]instChunk{}
+		p.instCount = map[*ast.FuncDecl]int{}
+	}
+	if _, ok := p.instM[key]; ok || p.instCount[decl] >= maxInstPerDecl {
+		return
+	}
+	p.instCount[decl]++
+	p.instM[key] = instChunk{binds: binds, ch: ch}
+}

@@ -1,0 +1,11 @@
+Scan input for the gosimilarity workload: five files copied verbatim from
+podhmo/minigo @ bf58aa79857f1ba2f0ff509de60ed599d3241317
+
+  complete.go        (repo root)
+  dispatch.go        (repo root)
+  package.go         (runtime/package.go)
+  typedef.go         (runtime/typedef.go)
+  vm.go              (vm/vm.go)
+
+Same sample as docs/sketch/ja/experiment-gosimilarity.md (~660 functions,
+~110 reported pairs).

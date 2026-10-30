@@ -1,0 +1,96 @@
+diff --git a/gosimilarity.go b/gosimilarity.go
+index 4c1c053..bc3505a 100644
+--- a/gosimilarity.go
++++ b/gosimilarity.go
+@@ -9,8 +9,6 @@ import (
+ 	"io"
+ 	"path"
+ 	"strings"
+-
+-	"github.com/Songmu/flagx"
+ )
+ 
+ const cmdName = "gosimilarity"
+@@ -65,27 +63,27 @@ func parseOptions(argv []string, errStream io.Writer) (options, []string, bool,
+ 	var excludes patterns
+ 	fs := flag.NewFlagSet(cmdName, flag.ContinueOnError)
+ 	fs.SetOutput(errStream)
+-	fs.Usage = flagx.Usage(fs,
++	fs.Usage = flagUsage(fs, errStream,
+ 		"gosimilarity [options] [files or directories...]\n       gosimilarity --packages [options] [package patterns...]",
+ 		"Find structurally similar Go functions and type declarations.\nWith --packages, . selects one package; ./... selects packages recursively.")
+-	flagx.Float64Var(fs, &o.threshold, "threshold|t", 0.87, "similarity threshold (`float` 0..1)")
+-	flagx.Float64Var(fs, &o.renameCost, "rename-cost|r", 0.3, "positive node replacement cost (`float`)")
+-	flagx.IntVar(fs, &o.minLines, "min-lines|m", 3, "minimum function declaration lines")
+-	flagx.IntVar(fs, &o.minTokens, "min-tokens", 0, "minimum normalized function tree nodes (overrides --min-lines)")
+-	flagx.BoolVar(fs, &compareTypes, "types", false, "include type comparisons")
+-	flagx.BoolVar(fs, &o.noFunctions, "no-functions", false, "compare only types")
+-	flagx.BoolVar(fs, &o.noTypes, "no-types", false, "disable type comparisons")
+-	flagx.BoolVar(fs, &o.print, "print|p", false, "include original declarations")
+-	flagx.BoolVar(fs, &o.includeTests, "include-tests", false, "include discovered test files")
+-	flagx.BoolVar(fs, &o.packages, "packages", false, "select build-eligible files using Go package patterns")
+-	flagx.StringVar(fs, &o.tags, "tags", "", "additional build tags for --packages (comma-separated)")
+-	flagx.BoolVar(fs, &o.crossFileOnly, "cross-file-only", false, "exclude same-file comparisons")
+-	flagx.BoolVar(fs, &o.failDuplicates, "fail-on-duplicates", false, "exit 1 when matches are found")
+-	flagx.StringVar(fs, &o.format, "format", "text", "output format: text or json")
+-	flagx.StringVar(fs, &o.filterFunction, "filter-function", "", "pair-side function name substring")
+-	flagx.StringVar(fs, &o.filterBody, "filter-function-body", "", "pair-side original body substring")
+-	flagx.Var(fs, &excludes, "exclude", "exclude cwd-relative glob (repeatable; ** matches directories)")
+-	flagx.BoolVar(fs, &ver, "version|V", false, "display version")
++	float64Var(fs, &o.threshold, "threshold|t", 0.87, "similarity threshold (`float` 0..1)")
++	float64Var(fs, &o.renameCost, "rename-cost|r", 0.3, "positive node replacement cost (`float`)")
++	intVar(fs, &o.minLines, "min-lines|m", 3, "minimum function declaration lines")
++	intVar(fs, &o.minTokens, "min-tokens", 0, "minimum normalized function tree nodes (overrides --min-lines)")
++	boolVar(fs, &compareTypes, "types", false, "include type comparisons")
++	boolVar(fs, &o.noFunctions, "no-functions", false, "compare only types")
++	boolVar(fs, &o.noTypes, "no-types", false, "disable type comparisons")
++	boolVar(fs, &o.print, "print|p", false, "include original declarations")
++	boolVar(fs, &o.includeTests, "include-tests", false, "include discovered test files")
++	boolVar(fs, &o.packages, "packages", false, "select build-eligible files using Go package patterns")
++	stringVar(fs, &o.tags, "tags", "", "additional build tags for --packages (comma-separated)")
++	boolVar(fs, &o.crossFileOnly, "cross-file-only", false, "exclude same-file comparisons")
++	boolVar(fs, &o.failDuplicates, "fail-on-duplicates", false, "exit 1 when matches are found")
++	stringVar(fs, &o.format, "format", "text", "output format: text or json")
++	stringVar(fs, &o.filterFunction, "filter-function", "", "pair-side function name substring")
++	stringVar(fs, &o.filterBody, "filter-function-body", "", "pair-side original body substring")
++	fs.Var(&excludes, "exclude", "exclude cwd-relative glob (repeatable; ** matches directories)")
++	boolVar(fs, &ver, "version|V", false, "display version")
+ 	paths, err := parseInterspersed(fs, argv)
+ 	if err != nil {
+ 		return o, nil, false, err
+diff --git a/tree.go b/tree.go
+index 2dadcc4..57041a5 100644
+--- a/tree.go
++++ b/tree.go
+@@ -1,7 +1,7 @@
+ package gosimilarity
+ 
+ import (
+-	"hash/maphash"
++	"hash/fnv"
+ 	"math"
+ )
+ 
+@@ -15,19 +15,17 @@ type tree struct {
+ // Interning verifies labels and children, so pointer equality is exact equality,
+ // not merely a matching fingerprint.
+ type trees struct {
+-	seed    maphash.Seed
+ 	buckets map[uint64][]*tree
+ 	nextID  int
+ }
+ 
+ func newTrees() *trees {
+-	return &trees{seed: maphash.MakeSeed(), buckets: make(map[uint64][]*tree)}
++	return &trees{buckets: make(map[uint64][]*tree)}
+ }
+ 
+ func (ts *trees) node(label string, children ...*tree) *tree {
+-	var h maphash.Hash
+-	h.SetSeed(ts.seed)
+-	h.WriteString(label)
++	h := fnv.New64a()
++	h.Write([]byte(label))
+ 	size := 1
+ 	for _, c := range children {
+ 		size += c.size

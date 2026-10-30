@@ -54,6 +54,7 @@ Verdicts: `PASS`, `DIFF` (silent divergence — a bug), `TRAP`, `REJECT`,
 | clickhouse-settings | clickhouse-datasource | `Settings` struct json tags, via `inspect` (surface only) | `CHConfig` in `src/types/config.ts` |
 | oapi-codegen-examples | oapi-codegen | every `go:generate` line in `examples/` (53), running `cmd/oapi-codegen` itself under minigo (`--src text/template,encoding/json,…`) via `task.sh` | the natively built `cmd/oapi-codegen` (rc + sha256 of every written file) |
 | grafana-swagger-spec | grafana | `swagger:route`/`response`/`model` doc annotations in `pkg/api` + `pkg/api/dtos`, via `inspect` (surface only, annotation → spec direction) | `public/api-merged.json` |
+| gosimilarity-scan | gosimilarity | the `gosimilarity` CLI itself under minigo (flag shim + fnv-for-maphash patch), scanning `input/` — a pinned 5-file slice of podhmo/minigo (~660 functions) | the natively built gosimilarity on the same patched tree and input |
 
 Run a single task by name: `./run.sh grafana-openapi`, `./run.sh
 oapi-codegen-examples`. oapi-codegen-examples is a compatibility/perf
@@ -61,6 +62,14 @@ workload, not the pitch: code generation executes nearly the whole program
 (kin-openapi, text/template, json/v2, goimports), so minigo's lazy partial
 loading does not help and the run shows raw interpreter speed (~5 min for the
 53 lines vs ~7 s native). It is not part of `compare.sh`.
+
+gosimilarity-scan is the same kind of perf workload: the interpreted run
+executes go/ast normalization plus an O(n²) tree edit distance, ~160 s vs
+~1 s native on the pinned input (~110 reported pairs). The two local
+patches it carries (`flagshim.go`, `shim.patch`) exist only because the
+unmodified tool needs `runtime.AddCleanup` and a non-hanging
+`hash/maphash` — see podhmo/minigo TODO.md and
+`docs/sketch/ja/experiment-gosimilarity.md`. Not part of `compare.sh`.
 
 ## Reports
 
