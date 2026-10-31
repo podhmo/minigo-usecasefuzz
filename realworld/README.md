@@ -62,7 +62,7 @@ Verdicts: `PASS`, `DIFF` (silent divergence — a bug), `TRAP`, `REJECT`,
 | clickhouse-settings | clickhouse-datasource | `Settings` struct json tags, via `inspect` (surface only) | `CHConfig` in `src/types/config.ts` |
 | oapi-codegen-examples | oapi-codegen | every `go:generate` line in `examples/` (53), running `cmd/oapi-codegen` itself under minigo (`--src text/template,encoding/json,…`) via `task.sh` | the natively built `cmd/oapi-codegen` (rc + sha256 of every written file) |
 | grafana-swagger-spec | grafana | `swagger:route`/`response`/`model` doc annotations in `pkg/api` + `pkg/api/dtos`, via `inspect` (surface only, annotation → spec direction) | `public/api-merged.json` |
-| gosimilarity-scan | gosimilarity | the `gosimilarity` CLI itself under minigo (flag shim + fnv-for-maphash patch), scanning `input/` — a pinned 5-file slice of podhmo/minigo (~660 functions) | the natively built gosimilarity on the same patched tree and input |
+| gosimilarity-scan | gosimilarity | the `gosimilarity` CLI itself under minigo (fnv-for-maphash patch; real flagx), scanning `input/` — a pinned 5-file slice of podhmo/minigo (~660 functions) | the natively built gosimilarity on the same patched tree and input |
 
 Run a single task by name: `./run.sh grafana-openapi`, `./run.sh
 oapi-codegen-examples`. oapi-codegen-examples is a compatibility/perf
@@ -72,12 +72,15 @@ loading does not help and the run shows raw interpreter speed (~5 min for the
 53 lines vs ~7 s native). It is not part of `compare.sh`.
 
 gosimilarity-scan is the same kind of perf workload: the interpreted run
-executes go/ast normalization plus an O(n²) tree edit distance, ~160 s vs
-~1 s native on the pinned input (~110 reported pairs). The two local
-patches it carries (`flagshim.go`, `shim.patch`) exist only because the
-unmodified tool needs `runtime.AddCleanup` and a non-hanging
-`hash/maphash` — see podhmo/minigo TODO.md and
-`docs/sketch/ja/experiment-gosimilarity.md`. Not part of `compare.sh`.
+executes go/ast normalization plus an O(n²) tree edit distance, ~90 s vs
+~0.6 s for the built native binary on the pinned input (~160x; ~110
+reported pairs; `oracle_s` also counts rsync + `go build`). The one local
+patch it carries (`shim.patch`, fnv for `hash/maphash`) exists only because
+`maphash.MakeSeed` hangs when interpreted — see podhmo/minigo TODO.md,
+`docs/sketch/ja/experiment-gosimilarity.md` and
+`docs/sketch/ja/experiment-gosimilarity-reverify.md`. `PROFILE=1` skips
+task.sh tasks; to profile it, call `gosimilarity.Run` with a fixed absolute
+input path from a small main and point `prof/` at that directory. Not part of `compare.sh`.
 
 ## Reports
 
