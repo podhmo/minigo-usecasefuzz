@@ -12,8 +12,9 @@
 # minigo, harmless here because flagx only uses it as a map key for the one
 # FlagSet. Both gaps are tracked in podhmo/minigo TODO.md.
 #
-# Output is the default text report: `--format json` still diverges
-# (minigo's json.Marshal emits unexported fields — TODO.md).
+# Both the default text report and `--format json` are compared; the JSON
+# run needs podhmo/minigo#1027 (json.Marshal used to emit unexported
+# fields, gosimilarity's private tree/body among them).
 #
 # Perf workload, not the lazy-read pitch: interpretation covers nearly the
 # whole tool (go/ast normalization + O(n^2) tree edit distance). Reference
@@ -44,4 +45,4 @@ minigo)
 	echo "task.sh: unknown mode $MODE" >&2; exit 1 ;;
 esac
 
-run input
+run input && run --format json input
