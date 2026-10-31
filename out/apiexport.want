@@ -1,0 +1,17 @@
+{"id":1,"name":"Ann","email":"ann@example.com","Tags":["ops"],"Age":"31","address":{"city":"Tokyo","Zip":"100-0001"},"created_by":"seed"}
+{"id":2,"name":"Bob","Age":"27","created_by":"import"}
+{
+  "admin": [
+    1
+  ],
+  "member": [
+    2
+  ]
+}
+encoder type: *json.Encoder
+{"level":"INFO","msg":"exported","count":2}
+{"level":"WARN","msg":"missing email","id":2}
+{"level":"DEBUG","msg":"detail","user":"Ann"}
+Ann:1 Bob:0 
+9 edited after render 3
+cycle: json: unsupported value: encountered a cycle via *main.node

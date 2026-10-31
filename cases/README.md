@@ -17,7 +17,13 @@
 `lim-*` cases are deliberate limitation probes: they use packages that are
 not bound into the interpreter and document how the failure presents.
 
-Latest run (2026-10-12): **44 PASS / 1 DIFF / 1 ACCEPT / 0 REJECT / 0 TRAP** —
+Latest run (2026-10-31, minigo podhmo/minigo#1032 stack top): `apiexport`
+is added and PASSes; on minigo main (f191f06) it TRAPs — it bundles the
+fixes from #1027 (unexported fields), #1030 (Encoder raw args, slog level),
+#1031 (map write-back) and #1032 (cycle/type spelling). The other cases are
+unchanged.
+
+Previous run (2026-10-12): **44 PASS / 1 DIFF / 1 ACCEPT / 0 REJECT / 0 TRAP** —
 every `lim-*` probe that used to trap now runs to completion. `lim-xml`
 passes since `reflect.TypeAssert[T]` (explicit type args on a bound
 builtin) works, and `lim-http` passes now that `golang.org/x/net/...`
@@ -44,6 +50,7 @@ cannot compile it.
 | slugify | URL slug generation incl. accents | strings.NewReplacer/ToLower/Trim, regexp.ReplaceAllString, unicode |
 | texttable | aligned report table | fmt width verbs (`%-Ns`, `%N.Nf`), strings.Repeat, local `type` in composite literal |
 | mustache | hand-rolled `{{var}}` templating | regexp.ReplaceAllStringFunc/FindStringSubmatch, strings.Join |
+| apiexport | export API records as JSONL / indented JSON / slog JSON, render via text/template | json.Encoder (SetIndent), unexported fields skipped, MarshalText map keys, `%T`, slog.JSONHandler levels, edits after passing []map to a host call, local-type cycle error |
 | csvsum | TSV parse → group/sum → report | strings.Split/Cut, strconv.Atoi, sort |
 | jsonconfig | load JSON config into typed struct, edit, MarshalIndent | encoding/json into struct & map[string]any, json tags |
 | jsonlines | JSONL transform pipeline | json.Unmarshal per line into map, json.Marshal, json.Valid |
