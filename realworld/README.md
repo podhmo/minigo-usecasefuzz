@@ -78,9 +78,11 @@ reported pairs; `oracle_s` also counts rsync + `go build`). The one local
 patch it carries (`shim.patch`, fnv for `hash/maphash`) exists only because
 `maphash.MakeSeed` hangs when interpreted — see podhmo/minigo TODO.md,
 `docs/sketch/ja/experiment-gosimilarity.md` and
-`docs/sketch/ja/experiment-gosimilarity-reverify.md`. `PROFILE=1` skips
-task.sh tasks; to profile it, call `gosimilarity.Run` with a fixed absolute
-input path from a small main and point `prof/` at that directory. Not part of `compare.sh`.
+`docs/sketch/ja/experiment-gosimilarity-reverify.md`. `PROFILE=1 ./run.sh
+gosimilarity-scan` profiles it through the minigo CLI. Because the task
+runs minigo twice, the profiles are those of the JSON run;
+`out/gosimilarity-scan.prof.txt` leads with the script lines
+(`distance.func1` ~86%). Not part of `compare.sh`.
 
 ## Reports
 
