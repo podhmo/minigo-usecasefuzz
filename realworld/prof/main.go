@@ -1,6 +1,8 @@
 // Command prof runs one realworld task under the minigo engine with
-// runtime/pprof enabled (the minigo CLI has no profiling flags).
-// run.sh builds it against $MINIGO_DIR via a generated go.mod.
+// runtime/pprof enabled. run.sh builds it against $MINIGO_DIR via a
+// generated go.mod; since minigo#1035/#1036 the CLI's own profiling env
+// covers PROFILE=1, so prof/ remains for TRACE=1, for a minigo without
+// those flags, and for compare.sh (which builds old revisions).
 //
 //	prof -dir <task dir> -out <prefix>
 //
