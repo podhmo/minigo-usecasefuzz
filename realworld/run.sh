@@ -14,12 +14,17 @@
 #   SRC_DIR     — where targets are cloned (default: ./.src, gitignored)
 #   TIMEOUT_SEC — per minigo run (default: 120)
 #   COLD=1      — also time the oracle with an empty GOCACHE (slow)
-#   PROFILE=1   — also run each task under prof/ (runtime/pprof around the
-#                 engine) and write out/<task>.{cpu,allocs}.pprof plus a
-#                 text summary out/<task>.prof.txt
-#   TRACE=1     — with PROFILE=1, also write out/<task>.trace (on macOS the
-#                 CPU profile can misattribute samples; the trace shows
-#                 what the main goroutine really did)
+#   PROFILE=1   — also profile each task once more and write
+#                 out/<task>.{cpu,allocs}.pprof, out/<task>.script.pprof
+#                 (script functions/lines) and a text summary
+#                 out/<task>.prof.txt. Uses the minigo CLI's
+#                 $MINIGO_{CPU,MEM,SCRIPT}PROFILE (minigo#1035/#1036), so
+#                 task.sh tasks are profiled too; a minigo without them
+#                 falls back to prof/ (no script profile, task.sh skipped)
+#   TRACE=1     — with PROFILE=1, profile through prof/ instead and also
+#                 write out/<task>.trace (on macOS the CPU profile can
+#                 misattribute samples; the trace shows what the main
+#                 goroutine really did)
 #
 # GOCACHE is never cleared: cold timings use a throwaway temp dir.
 set -u
@@ -61,24 +66,41 @@ build_prof() {
 		(cd "$pdir" && GOFLAGS=-mod=mod go build -o "$OUT/prof" .)
 }
 
-# summarize_prof NAME — top-N text views next to the raw profiles.
+# summarize_prof NAME BIN — top-N text views next to the raw profiles; BIN
+# is the binary that wrote the cpu/allocs profiles.
 summarize_prof() {
-	local name="$1" base="$OUT/$1"
+	local name="$1" bin="$2" base="$OUT/$1"
 	{
+		if [ -s "$base.script.pprof" ]; then
+			echo "## script: flat (functions)"
+			go tool pprof -top -nodecount=25 "$base.script.pprof" 2>/dev/null | sed -n '4,$p'
+			echo
+			echo "## script: flat (lines)"
+			go tool pprof -top -lines -nodecount=25 "$base.script.pprof" 2>/dev/null | sed -n '4,$p'
+			echo
+		fi
 		echo "## cpu: flat"
-		go tool pprof -top -nodecount=25 "$OUT/prof" "$base.cpu.pprof" 2>/dev/null | sed -n '4,$p'
+		go tool pprof -top -nodecount=25 "$bin" "$base.cpu.pprof" 2>/dev/null | sed -n '4,$p'
 		echo
 		echo "## cpu: cumulative (minigo frames)"
-		go tool pprof -top -cum -nodecount=200 "$OUT/prof" "$base.cpu.pprof" 2>/dev/null | grep 'podhmo/minigo' | head -30
+		go tool pprof -top -cum -nodecount=200 "$bin" "$base.cpu.pprof" 2>/dev/null | grep 'podhmo/minigo' | head -30
 		echo
 		echo "## allocs: alloc_space"
-		go tool pprof -top -nodecount=20 -sample_index=alloc_space "$OUT/prof" "$base.allocs.pprof" 2>/dev/null | sed -n '4,$p'
+		go tool pprof -top -nodecount=20 -sample_index=alloc_space "$bin" "$base.allocs.pprof" 2>/dev/null | sed -n '4,$p'
 	} > "$base.prof.txt"
 }
 
 [ "$TRACE" = 1 ] && PROFILE=1
+# CLI_PROFILE: profile through the minigo CLI's env defaults (one run gives
+# cpu, allocs and the script profile, task.sh tasks included); prof/ is the
+# fallback for TRACE=1 and for a minigo without the profiling flags.
+CLI_PROFILE=0
 if [ "$PROFILE" = 1 ]; then
-	build_prof || { echo "cannot build prof/ against $MINIGO_DIR" >&2; exit 1; }
+	if [ "$TRACE" != 1 ] && "$BIN" help run 2>/dev/null | grep -q -- --scriptprofile; then
+		CLI_PROFILE=1
+	else
+		build_prof || { echo "cannot build prof/ against $MINIGO_DIR" >&2; exit 1; }
+	fi
 fi
 
 # fetch_target NAME — shallow-fetch the pinned commit and download modules once.
@@ -175,13 +197,29 @@ for name in $TASKS; do
 	fi
 	printf '%-12s %-24s %9s %9s %9s\n' "$v" "$name" "$oracle" "$got_s" "$cold"
 
-	if [ "$PROFILE" = 1 ] && [ -x "$dir/task.sh" ]; then
-		printf '%-12s %-24s %s\n' "" "  profile" "skipped (task.sh drives a program, not one main)"
+	if [ "$CLI_PROFILE" = 1 ]; then
+		# a task.sh that runs minigo more than once keeps the last run's
+		# profiles (each run rewrites the files).
+		rm -f "$OUT/$name".{cpu,allocs,script}.pprof
+		t0=$(now)
+		if [ -x "$dir/task.sh" ]; then
+			(cd "$dir" && MINIGO_CPUPROFILE="$OUT/$name.cpu.pprof" MINIGO_MEMPROFILE="$OUT/$name.allocs.pprof" MINIGO_SCRIPTPROFILE="$OUT/$name.script.pprof" \
+				$TIMEOUT "$tsec" ./task.sh minigo "$BIN") > /dev/null 2> "$OUT/$name.prof.err"
+		else
+			(cd "$dir" && MINIGO_CPUPROFILE="$OUT/$name.cpu.pprof" MINIGO_MEMPROFILE="$OUT/$name.allocs.pprof" MINIGO_SCRIPTPROFILE="$OUT/$name.script.pprof" \
+				$TIMEOUT "$tsec" "$BIN" run .) > /dev/null 2> "$OUT/$name.prof.err"
+		fi
+		res="profiled in $(elapsed "$t0" "$(now)")s"
+		summarize_prof "$name" "$BIN"
+		printf '%-12s %-24s %s -> out/%s.prof.txt\n' "" "  profile" "$res" "$name"
+	elif [ "$PROFILE" = 1 ] && [ -x "$dir/task.sh" ]; then
+		printf '%-12s %-24s %s\n' "" "  profile" "skipped (task.sh needs a minigo with --scriptprofile, or TRACE=1 was set)"
 	elif [ "$PROFILE" = 1 ]; then
 		targs=""
 		[ "$TRACE" = 1 ] && targs="-trace"
+		rm -f "$OUT/$name.script.pprof" # prof/ writes none; drop a stale one
 		res=$(cd "$dir" && $TIMEOUT "$TIMEOUT_SEC" "$OUT/prof" -dir . -out "$OUT/$name" $targs 2> "$OUT/$name.prof.err" | tail -1)
-		summarize_prof "$name"
+		summarize_prof "$name" "$OUT/prof"
 		printf '%-12s %-24s %s -> out/%s.prof.txt\n' "" "  profile" "$res" "$name"
 	fi
 done

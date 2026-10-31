@@ -31,12 +31,20 @@ pin → TODO) is the `realworld` skill in podhmo/minigo.
   need no module downloads; `--full` adds grafana-openapi. The
   grafana-swagger-* tasks are pitch/drift checks, not regression probes.
 
-- `prof/` — `runtime/pprof` around the minigo engine (the CLI has no
-  profiling flags). `PROFILE=1 ./run.sh [task ...]` builds it against
-  `$MINIGO_DIR` through a generated go.mod and writes, per task,
-  `out/<task>.cpu.pprof`, `out/<task>.allocs.pprof` and a text summary
-  `out/<task>.prof.txt` (flat CPU, cumulative minigo frames, alloc_space).
-  A task that traps still gets a profile of the run up to the trap.
+- `PROFILE=1 ./run.sh [task ...]` profiles each task once more and writes,
+  per task, `out/<task>.cpu.pprof`, `out/<task>.allocs.pprof`,
+  `out/<task>.script.pprof` and a text summary `out/<task>.prof.txt`. The
+  summary has the script functions and lines, flat CPU, the cumulative
+  minigo frames, and alloc_space. It uses the minigo CLI's
+  `$MINIGO_CPUPROFILE` / `$MINIGO_MEMPROFILE` / `$MINIGO_SCRIPTPROFILE`
+  (podhmo/minigo#1035, #1036), so `task.sh` tasks are profiled too. A
+  `task.sh` that runs minigo several times keeps the last run's profiles. A
+  task that traps still gets a profile of the run up to the trap.
+- `prof/` — `runtime/pprof` around the minigo engine, built against
+  `$MINIGO_DIR` through a generated go.mod. `PROFILE=1` falls back to it
+  under `TRACE=1` or for a minigo without the profiling flags (no script
+  profile then, and `task.sh` tasks are skipped). `compare.sh --profile`
+  also uses it.
 - `probes/<name>/` — synthetic `func main()` perf probes for `compare.sh`
   (no target checkout needed; output doubles as a correctness check when
   two builds disagree).
@@ -93,8 +101,12 @@ is free.
 
 ## Profiling notes
 
-- Open a profile with `go tool pprof -http=: out/prof out/<task>.cpu.pprof`
-  (`out/prof` is the binary that produced it).
+- Open a profile with `go tool pprof -http=: out/minigo out/<task>.cpu.pprof`
+  (`out/minigo` is the binary that produced it; `out/prof` under the
+  `prof/` fallback). The script profile needs no binary:
+  `go tool pprof -top -lines out/<task>.script.pprof` names script
+  functions and `file:line` — start there to find the hot script code,
+  then read the cpu/allocs profiles for what the interpreter spends on it.
 - **macOS:** heavy goroutine spawning (e.g. a helper goroutine per
   `sync.Mutex.Lock`) can make the CPU profile pin most samples on libc
   (`pthread_cond_signal`/`pthread_cond_wait`) and hide the interpreter.
