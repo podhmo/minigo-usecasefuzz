@@ -17,9 +17,9 @@ MODE="${1:?usage: task.sh native|minigo [BIN]}"
 BIN="${2:-}"
 : "${TARGET_DIR:?TARGET_DIR is not set}"
 PKG=github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
-# The bound text/template, encoding/json, … are too partial for
+# The bound text/template engine and encoding/json are too partial for
 # oapi-codegen; these run from source (podhmo/minigo TODO.md).
-SRC_FLAGS="--src text/template,encoding/json,encoding/hex,encoding/base64,encoding/base32,slices,maps"
+SRC_FLAGS="--src text/template,encoding/json"
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
